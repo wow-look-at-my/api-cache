@@ -228,6 +228,35 @@ func bpReadOne(blob []byte, role string) ([]byte, error) {
 	return nil, fmt.Errorf("role %q not in directory", role)
 }
 
+// bpReadOneSized is bpReadOne with the allocation sized from the directory
+// instead of grown by io.ReadAll. The directory already carries the decoded
+// size, so a real implementation would never pay ReadAll's doubling.
+func bpReadOneSized(blob []byte, role string) ([]byte, error) {
+	r, err := bp.NewReaderAt(bytes.NewReader(blob), int64(len(blob)))
+	if err != nil {
+		return nil, err
+	}
+	var dir resultDir
+	if err := r.DecodeJSONLast(tDirectory, &dir); err != nil {
+		return nil, err
+	}
+	for _, e := range dir.Entries {
+		if e.Role != role {
+			continue
+		}
+		rd, _, err := r.OpenAt(e.Offset, tOutput)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]byte, e.Size)
+		if _, err := io.ReadFull(rd, out); err != nil {
+			return nil, err
+		}
+		return out, nil
+	}
+	return nil, fmt.Errorf("role %q not in directory", role)
+}
+
 func TestBinpazerRoundTrip(t *testing.T) {
 	ms := entrySet(t)
 	for _, c := range []struct {
@@ -356,6 +385,29 @@ func BenchmarkBinpazerReadOne(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				if _, err := bpReadOne(blob, "object"); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+
+	for _, c := range []struct {
+		name  string
+		codec uint16
+	}{
+		{"stored", bp.CodecStored},
+		{"zstd", bp.CodecZstd},
+		{"lz4", bp.CodecLZ4},
+	} {
+		blob, err := bpPack(rev, c.codec, false)
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.Run("sized/"+c.name, func(b *testing.B) {
+			b.SetBytes(n)
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := bpReadOneSized(blob, "object"); err != nil {
 					b.Fatal(err)
 				}
 			}

@@ -66,9 +66,21 @@ func timeN(n int, f func()) float64 {
 
 // build writes a binpazer container holding the two blocks, with a Block Index
 // and the footer.
+//
+// The destination must be SEEKABLE. Writer.End back-patches file_length in the
+// header, and skips that when it cannot seek; the reader's footer probe is
+// gated on file_length, so a container written to a bytes.Buffer comes back
+// with hasIndex=false and every Find degrades to a full forward walk. A temp
+// file is used here for that reason, and it is worth stating plainly: a cooked
+// form generated through a pipe silently loses the index fast path.
 func build(strTable, rules []byte) []byte {
-	var buf bytes.Buffer
-	w, err := binpazer.NewWriter(&buf, writerGUID, "api-cache cooked config", []binpazer.TypeDef{
+	tmp, err := os.CreateTemp("", "apcache-binpazer-*")
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+	w, err := binpazer.NewWriter(tmp, writerGUID, "api-cache cooked config", []binpazer.TypeDef{
 		{TypeID: typeStrings, GUID: guidStrings, Name: "strings"},
 		{TypeID: typeRules, GUID: guidRules, Name: "rules"},
 	})
@@ -89,7 +101,11 @@ func build(strTable, rules []byte) []byte {
 	if err := w.End(); err != nil {
 		panic(err)
 	}
-	return buf.Bytes()
+	out, err := os.ReadFile(tmp.Name())
+	if err != nil {
+		panic(err)
+	}
+	return out
 }
 
 func main() {
@@ -121,6 +137,14 @@ func main() {
 
 	ra := bytes.NewReader(container)
 	sz := int64(len(container))
+	if os.Getenv("DEBUG") != "" {
+		r0, e0 := binpazer.NewReaderAt(ra, sz)
+		fmt.Fprintf(os.Stderr, "DEBUG NewReaderAt err=%v hasIndex=%v indexOff=%v firstBlock=%v size=%d\n", e0, r0.HasIndex(), func() uint64 { o, _ := r0.IndexOffset(); return o }(), r0.FirstBlockOffset, sz)
+		offs, e1 := r0.Find(typeRules)
+		fmt.Fprintf(os.Stderr, "DEBUG Find(rules)=%v err=%v\n", offs, e1)
+		offs2, e2 := r0.Find(typeStrings)
+		fmt.Fprintf(os.Stderr, "DEBUG Find(strings)=%v err=%v\n", offs2, e2)
+	}
 
 	fmt.Printf("| open reader (header + type table + footer) | %.1f | %s |\n",
 		timeN(*n, func() {

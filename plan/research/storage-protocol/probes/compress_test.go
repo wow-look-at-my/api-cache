@@ -202,3 +202,51 @@ func BenchmarkMemcpyBaseline(b *testing.B) {
 		})
 	}
 }
+
+// Codec construction is not free. A container that builds a fresh decoder per
+// block (binpazer's Codec interface does: NewReader(r) per payload) pays this
+// on every lookup unless the codec is pooled.
+func BenchmarkCodecConstruct(b *testing.B) {
+	b.Run("zstd.NewReader", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			r, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+			if err != nil {
+				b.Fatal(err)
+			}
+			r.Close()
+		}
+	})
+	b.Run("zstd.NewReader/default-concurrency", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			r, err := zstd.NewReader(nil)
+			if err != nil {
+				b.Fatal(err)
+			}
+			r.Close()
+		}
+	})
+	b.Run("zstd.NewWriter", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			w, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1))
+			if err != nil {
+				b.Fatal(err)
+			}
+			w.Close()
+		}
+	})
+	b.Run("lz4.NewReader", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_ = lz4.NewReader(nil)
+		}
+	})
+	b.Run("lz4.NewWriter", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_ = lz4.NewWriter(nil)
+		}
+	})
+}
