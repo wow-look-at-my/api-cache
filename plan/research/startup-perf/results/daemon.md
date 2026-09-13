@@ -85,3 +85,13 @@ any of that, and the decision should not be made on the 157 µs alone.
 
 Also: this measures a daemon that answers instantly. A real one does a cache
 lookup, which is disk or network, and that work is not in any row here.
+
+## What is not covered
+
+Linux x64 only, and a unix socket specifically. Windows has no unix-socket
+equivalent in the same form (named pipes are the usual answer) and its process
+floor is ten times taller, which changes the arithmetic in finding 4 completely:
+against a 5.2 ms `CreateProcess`, a 66 µs round trip and a 2.1 ms Go runtime
+are both small, so the case for a native client is much weaker there. That is
+the single biggest gap in this file and it should be measured before the daemon
+question is settled.

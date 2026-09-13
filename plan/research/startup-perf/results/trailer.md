@@ -109,3 +109,12 @@ Appending it to an executable means the footer and index offsets need rebasing.
 it in C. The file's own last 8 bytes carry the container length so the base can
 be computed; binpazer's footer gives the index offset, which is not the same
 thing.
+
+## What is not covered
+
+Linux x64 only. The exec-cost half of this (a trailer does not slow `execve`)
+is an ELF-loader property and would need re-checking against Mach-O and PE
+before being claimed for macOS or Windows. The read-cost half is four syscalls
+and a memcpy, so it should track each platform's syscall cost — which
+[ci-platforms.md](ci-platforms.md) shows differing by an order of magnitude —
+but that is reasoning, not a measurement.
