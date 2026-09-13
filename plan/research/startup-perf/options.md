@@ -200,5 +200,54 @@ stable 1.0, which is a real risk for a tool meant to sit in every build.
 
 ## What the numbers suggest
 
-Filled in below once every job's artifact is in `results/`. See `README.md` for
-the headline figures.
+This is a reading of the measurements, not a decision. Whoever decides has
+constraints these probes cannot see.
+
+**The numbers suggest the config load is the problem, not the language.** The
+naive XML load is ~2,269 µs and the Go startup floor is ~1,041 µs. Every
+option that attacks the language attacks the smaller term. Option 1 is the only
+one the measurements rule out outright, and what rules it out is the config
+load rather than Go.
+
+**They suggest the cheap fixes come first, because they are nearly free and
+they change the shape of the decision.** A cooked form plus a shared template
+root is ~279 µs, an 8x reduction, and neither part is architectural: no daemon,
+no second language, no new process model. After those two changes a plain Go
+binary costs roughly 1,337 µs per exec. Before them it costs roughly 3,300 µs.
+Any comparison against C or a daemon made on the pre-fix number is comparing
+against a straw man.
+
+**They suggest the trailer and the sidecar are close enough to choose on
+correctness rather than speed.** Reading a cooked trailer is ~15-17 µs and a
+sidecar read would be the same order. The real difference is that a trailer
+cannot get out of step with its binary and a sidecar can, against which a
+sidecar lets the config change without re-cooking the wrapper. That is a
+correctness and workflow argument, and the timings do not settle it. If a
+container format is wanted, binpazer costs ~2 µs and 1.1% over a hand-rolled
+footer and brings a block index, a C reader, and skippable unknown blocks.
+
+**They suggest a daemon is worth its complexity only with a native client.** A
+Go client plus a Go daemon is ~1,290 µs against a cooked Go binary's ~1,337 µs:
+within noise, for a whole new process model, a lifecycle, and a version-skew
+problem. A static C client is ~608 µs, which is a genuine ~730 µs per exec
+against the cooked Go binary — about 7 seconds on a 10,000-file build. That is
+the only daemon configuration the numbers support, and it costs a second
+language and a protocol two implementations must agree on.
+
+**They suggest that if the wrapper is written natively, the link mode is not a
+detail.** Static linking is worth 30-40% in C, dynamic `<iostream>` costs as
+much as Go, and a dynamically linked C daemon client spends 190 µs on `ld.so`
+to save a 66 µs round trip. A native implementation that does not control its
+link mode is not obviously faster than the Go one it replaced.
+
+**They suggest one thing be measured on the host rather than assumed.**
+sha256 is 132 µs per 200 KiB with hardware acceleration and roughly 4.3x slower
+without it. That is the difference between hashing being 10% of an exec and
+being half of one, and it is a property of the machine the wrapper is installed
+on, not of the wrapper.
+
+**What is NOT measured here, and would change the reading if it went badly:**
+cold-start costs (every number here is page-cache warm), a config an order of
+magnitude larger than the 30 KB sample, real cache lookups inside the daemon,
+Windows and macOS for every family rather than only the startup floor, and Zig
+at all.
