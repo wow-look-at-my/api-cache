@@ -25,6 +25,10 @@ Read in order the first time. After that each file stands alone for its area.
 | `12-decisions.md` | Every open decision the reviewer must make, with options and a recommendation. |
 | `13-risks.md` | What can sink the project and what mitigates each. |
 
+## Research
+
+The evidence lives in `plan/research/<worker>/`, one directory per worker, each with a README that indexes it and a summary. The workers were: `prior-art` (ccache, sccache, buildcache, the server protocols), `dsl-survey` (api-dsl, api-cli, api-mirror, api-cli-spec), `compile-semantics` (what a correct wrapper must do per tool), `msvc-probes` (cl.exe and clang-cl measured on windows-latest), `cache-server` (go-s3-server and its client), `storage-protocol` (local layout, container formats, compression, remote protocols, safety, measured on three platforms), `startup-perf` (process startup, config load, trailer, daemon and hashing costs, measured on four runners). Reference repositories are submodules under `refs/`.
+
 ## Conventions
 
 - A plan file states a recommendation and its alternatives. A recommendation is marked **Recommended**; it is not a decision until `12-decisions.md` records one.
