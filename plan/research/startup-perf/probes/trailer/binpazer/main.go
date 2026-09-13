@@ -137,13 +137,15 @@ func main() {
 
 	ra := bytes.NewReader(container)
 	sz := int64(len(container))
-	if os.Getenv("DEBUG") != "" {
-		r0, e0 := binpazer.NewReaderAt(ra, sz)
-		fmt.Fprintf(os.Stderr, "DEBUG NewReaderAt err=%v hasIndex=%v indexOff=%v firstBlock=%v size=%d\n", e0, r0.HasIndex(), func() uint64 { o, _ := r0.IndexOffset(); return o }(), r0.FirstBlockOffset, sz)
-		offs, e1 := r0.Find(typeRules)
-		fmt.Fprintf(os.Stderr, "DEBUG Find(rules)=%v err=%v\n", offs, e1)
-		offs2, e2 := r0.Find(typeStrings)
-		fmt.Fprintf(os.Stderr, "DEBUG Find(strings)=%v err=%v\n", offs2, e2)
+	// Confirm the index fast path is live before timing anything: without it
+	// every Find below silently becomes a forward walk and the numbers mean
+	// something else entirely.
+	probe, err := binpazer.NewReaderAt(ra, sz)
+	if err != nil {
+		panic(err)
+	}
+	if !probe.HasIndex() {
+		panic("container carries no block index; the numbers below would measure a forward walk")
 	}
 
 	fmt.Printf("| open reader (header + type table + footer) | %.1f | %s |\n",

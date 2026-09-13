@@ -7,13 +7,14 @@
 
 | operation | us | note |
 |---|---|---|
-| open reader (header + type table + footer) | 11.9 | NewReaderAt: what every read below starts with |
-panic: binpazer: block payload claims 6762810245124 bytes but only 0 remain in the input: binpazer: truncated input
+| open reader (header + type table + footer) | 12.6 | NewReaderAt: what every read below starts with |
+| open + FindFirst(rules) + ReadPayload | 8.2 | the hot path: only the block the invocation needs |
+| open + both blocks | 8.9 | string table plus rules, for the cold path that needs both |
 
-goroutine 1 [running]:
-main.main.func2()
-	/home/user/api-cache/plan/research/startup-perf/probes/trailer/binpazer/main.go:142 +0xa5
-main.timeN(0x12c, 0xc00010cef0)
-	/home/user/api-cache/plan/research/startup-perf/probes/trailer/binpazer/main.go:56 +0x3b
-main.main()
-	/home/user/api-cache/plan/research/startup-perf/probes/trailer/binpazer/main.go:135 +0x665
+## appended to `/home/user/api-cache/plan/research/startup-perf/bin/go-hello` (1885405 B host + 27728 B container)
+
+| operation | us | note |
+|---|---|---|
+| os.Executable-style open + last 8 B + section reader + rules block | 13.2 | the whole per-exec cost of a binpazer-cooked binary |
+| open + close only | 2.5 | the syscall floor under the row above |
+
