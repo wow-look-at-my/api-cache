@@ -56,12 +56,12 @@ foreach ($pair in @(@(1041, 'Japanese'), @(1031, 'German'), @(1036, 'French'), @
 # everything up to and including that space is the prefix.
 function Get-ShowIncludesPrefix {
     param([string]$Exe, [string]$Dir, [switch]$IsClang)
-    $args = @()
-    if ($IsClang) { $args += '--driver-mode=cl' }
-    $args += @('-nologo', '-showIncludes', '-c', '-Fonul', '-I.', '-E', 'test.c')
+    $cmdArgs = @()
+    if ($IsClang) { $cmdArgs += '--driver-mode=cl' }
+    $cmdArgs += @('-nologo', '-showIncludes', '-c', '-Fonul', '-I.', '-E', 'test.c')
     $o = Join-Path $script:Raw 'detect.stdout.txt'
     $e = Join-Path $script:Raw 'detect.stderr.txt'
-    $p = Start-Process -FilePath $Exe -ArgumentList $args -WorkingDirectory $Dir `
+    $p = Start-Process -FilePath $Exe -ArgumentList $cmdArgs -WorkingDirectory $Dir `
         -RedirectStandardOutput $o -RedirectStandardError $e -NoNewWindow -Wait -PassThru
     $result = [ordered]@{ Exit = $p.ExitCode; Prefix = $null; Stream = $null; Line = $null }
     foreach ($stream in @('stderr', 'stdout')) {
@@ -109,6 +109,6 @@ foreach ($lcid in @(1041, 1031)) {
     [System.Environment]::SetEnvironmentVariable('VSLANG', "$lcid")
     $d2 = Get-ShowIncludesPrefix -Exe $cl -Dir $w
     [System.Environment]::SetEnvironmentVariable('VSLANG', $saved)
-    Add-Note "Detection with `VSLANG=$lcid`: stream=``$($d2.Stream)`` prefix=``[$($d2.Prefix)]``"
+    Add-Note ('Detection with `VSLANG=' + $lcid + '`: stream=`' + $d2.Stream + '` prefix=`[' + $d2.Prefix + ']`')
 }
 Add-Note ''

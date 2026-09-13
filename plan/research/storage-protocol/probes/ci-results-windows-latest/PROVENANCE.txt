@@ -1,0 +1,8 @@
+Artifact: storage-protocol-windows-latest
+Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34728376981
+Runner: windows-latest, AMD EPYC 7763, 4 vCPU, sha_ni present, NTFS on D:
+Toolchain: MinGW g++ (MSYS2), Go 1.26.8 windows/amd64
+Commit: 2b3e80573a4b75d2106ca0ec4642da359e42b977
+benchtime: 2s
+NOTE: this run predates restore_portable_test.go, so it carries no restore
+numbers (restore_test.go is Linux-only). A later run fills that gap.
