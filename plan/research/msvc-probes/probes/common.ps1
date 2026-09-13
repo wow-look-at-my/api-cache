@@ -91,8 +91,41 @@ function Format-Block {
     return $Text.TrimEnd("`r", "`n")
 }
 
+# Quote one argument for a .cmd file. Only a space needs quoting; anything that
+# cmd.exe itself would interpret is REFUSED loudly rather than silently
+# mis-executed, because a probe that ran a different command line than the one
+# recorded is worse than no probe.
+function ConvertTo-CmdArg {
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Value)
+    if ($Value -match '[%^&<>|"]') {
+        throw "probe argument contains a character cmd.exe would interpret, and this harness refuses to guess at it: [$Value]"
+    }
+    if ($Value -match '[\s]') { return '"' + $Value + '"' }
+    return $Value
+}
+
+# How long any one compiler invocation may take before it is killed and recorded
+# as TIMEOUT. A probe here is a handful of lines of C; two minutes is far beyond
+# any legitimate run, including the windows.h PCH.
+$script:ProbeTimeoutMs = 120000
+
 # Invoke-Probe: run one command, capture the three things, append a markdown
 # section, and hand the captures back to the caller for assertions.
+#
+# The child runs as `cmd.exe /c <generated .cmd>` and cmd does the redirection
+# itself, with stdin from NUL. It does NOT use Start-Process -Redirect*.
+#
+# Why: cl.exe spawns vctip.exe (the MSVC telemetry uploader), which INHERITS
+# cl's stdout and stderr handles and then outlives cl. PowerShell's
+# `Start-Process -Wait -RedirectStandardOutput` waits for the redirection pipe
+# to reach EOF as well as for the process to exit, so a surviving vctip holds
+# that pipe open and the wait blocks forever on a compile that already
+# succeeded. Run 2 hung exactly there: `cl /nologo /c sub\bar.c` wrote `bar.c`
+# to stdout and then never returned, and the runner reported
+# "Terminate orphan process: pid (4204) (vctip)" at cancellation.
+# With cmd doing `> out 2> err`, the child writes to FILE handles, not pipes, so
+# an orphaned vctip cannot hold the parent open. `< NUL` additionally guarantees
+# that no invocation can ever block reading console input.
 function Invoke-Probe {
     param(
         [Parameter(Mandatory)][string]$Id,
@@ -108,6 +141,7 @@ function Invoke-Probe {
     $errFile = Join-Path $script:Raw "$Id.stderr.txt"
     $codeFile = Join-Path $script:Raw "$Id.exit.txt"
     $cmdFile = Join-Path $script:Raw "$Id.cmd.txt"
+    $batFile = Join-Path $script:Raw "$Id.run.cmd"
 
     $saved = @{}
     foreach ($k in $EnvVars.Keys) {
@@ -118,22 +152,29 @@ function Invoke-Probe {
     $display = "$Exe " + ($CmdArgs -join ' ')
     Set-Content -Path $cmdFile -Value $display -Encoding utf8
 
+    $quoted = @(ConvertTo-CmdArg $Exe) + @($CmdArgs | ForEach-Object { ConvertTo-CmdArg $_ })
+    $line = ($quoted -join ' ') + ' > "' + $outFile + '" 2> "' + $errFile + '" < NUL'
+    Set-Content -Path $batFile -Value @('@echo off', $line) -Encoding ascii
+
+    Write-Host "=== start $script:Family/$Id"
+    $timedOut = $false
     try {
-        if ($CmdArgs.Count -gt 0) {
-            $p = Start-Process -FilePath $Exe -ArgumentList $CmdArgs -WorkingDirectory $WorkDir `
-                -RedirectStandardOutput $outFile -RedirectStandardError $errFile `
-                -NoNewWindow -Wait -PassThru
+        $p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $batFile) `
+            -WorkingDirectory $WorkDir -NoNewWindow -PassThru
+        if ($p.WaitForExit($script:ProbeTimeoutMs)) {
+            $code = $p.ExitCode
         } else {
-            $p = Start-Process -FilePath $Exe -WorkingDirectory $WorkDir `
-                -RedirectStandardOutput $outFile -RedirectStandardError $errFile `
-                -NoNewWindow -Wait -PassThru
+            $timedOut = $true
+            try { $p.Kill($true) } catch { }
+            try { $null = $p.WaitForExit(15000) } catch { }
+            $code = 'TIMEOUT'
         }
-        $code = $p.ExitCode
     } finally {
         foreach ($k in $saved.Keys) { [System.Environment]::SetEnvironmentVariable($k, $saved[$k]) }
     }
 
     Set-Content -Path $codeFile -Value "$code" -Encoding utf8
+    Write-Host "=== end $script:Family/$Id exit=$code"
 
     $outBytes = Read-Bytes $outFile
     $errBytes = Read-Bytes $errFile
@@ -151,6 +192,9 @@ function Invoke-Probe {
         ""
     )
     if ($Comment) { $lines += @($Comment, "") }
+    if ($timedOut) {
+        $lines += @("**This probe TIMED OUT** after $([int]($script:ProbeTimeoutMs / 1000))s and its process tree was killed. The capture below is whatever it had written by then.", "")
+    }
     $lines += @(
         "cmd: ``$display``",
         "cwd: ``$WorkDir``$envNote",
@@ -175,6 +219,7 @@ function Invoke-Probe {
     return [pscustomobject]@{
         Id       = $Id
         Exit     = $code
+        TimedOut = $timedOut
         Stdout   = $stdout
         Stderr   = $stderr
         OutBytes = $outBytes

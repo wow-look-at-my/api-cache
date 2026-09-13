@@ -118,17 +118,20 @@ Add-Note ''
 $pipeOut = Join-Path $script:Raw 'colour-through-pipe.stdout.txt'
 $pipeErr = Join-Path $script:Raw 'colour-through-pipe.stderr.txt'
 $pipeBat = Join-Path $d 'pipe.cmd'
-Set-Content -Path $pipeBat -Value @(
+# The pipe between cl and findstr is the measurement, so it stays. cmd writes
+# the RESULT to files itself and reads stdin from NUL, so PowerShell holds no
+# pipe of its own and an orphaned vctip cannot wedge the wait.
+Set-Content -Path $pipeBat -Encoding ascii -Value @(
     '@echo off',
-    ('"' + $cl + '" /nologo /c /Fopipe.obj err.c | findstr /n .')
-) -Encoding ascii
+    ('"' + $cl + '" /nologo /c /Fopipe.obj err.c | findstr /n . > "' + $pipeOut + '" 2> "' + $pipeErr + '" < NUL')
+)
+$p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $pipeBat) -WorkingDirectory $d -NoNewWindow -PassThru
+if (-not $p.WaitForExit($script:ProbeTimeoutMs)) { try { $p.Kill($true) } catch { }; throw 'colour-through-pipe probe TIMED OUT' }
 Add-Note 'pipe.cmd:'
 Add-Note '```'
 Add-Note (Get-Content $pipeBat)
 Add-Note '```'
 Add-Note ''
-$p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'pipe.cmd') `
-    -WorkingDirectory $d -RedirectStandardOutput $pipeOut -RedirectStandardError $pipeErr -NoNewWindow -Wait -PassThru
 $pb = Read-Bytes $pipeOut
 Add-Note '### colour-through-pipe'
 Add-Note ''

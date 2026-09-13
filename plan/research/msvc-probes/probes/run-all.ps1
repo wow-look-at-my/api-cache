@@ -71,10 +71,13 @@ $failures = @()
 foreach ($f in $families) {
     $path = Join-Path $PSScriptRoot $f
     Write-Host ''
-    Write-Host "================ $f ================"
+    Write-Host "================ FAMILY START $f ================"
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         & $path
+        Write-Host "================ FAMILY END $f ok ($([int]$sw.Elapsed.TotalSeconds)s) ================"
     } catch {
+        Write-Host "================ FAMILY END $f FAILED ($([int]$sw.Elapsed.TotalSeconds)s) ================"
         $msg = "$f FAILED: $($_.Exception.Message)"
         Write-Host $msg
         Write-Host ($_.ScriptStackTrace)

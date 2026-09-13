@@ -154,16 +154,16 @@ $null = Compare-Objects (Join-Path $b1 'br.obj') (Join-Path $b2 'br.obj') '/Z7 /
 $ds = New-Scratch 'p11-stamp'
 Copy-Sources $ds
 $null = Invoke-Probe -Id 'stamp-run1' -Exe $cl -CmdArgs @('/nologo', '/c', '/Fostamp1.obj', 'stamp.c') -WorkDir $ds
-Add-Note 'Sleeping 65 seconds so `__TIME__` (HH:MM:SS) is guaranteed to move.'
+Add-Note 'Sleeping 3 seconds. `__TIME__` expands to HH:MM:SS, so seconds are enough to move it.'
 Add-Note ''
-Start-Sleep -Seconds 65
+Start-Sleep -Seconds 3
 $null = Invoke-Probe -Id 'stamp-run2' -Exe $cl -CmdArgs @('/nologo', '/c', '/Fostamp2.obj', 'stamp.c') -WorkDir $ds
-$null = Compare-Objects (Join-Path $ds 'stamp1.obj') (Join-Path $ds 'stamp2.obj') '__DATE__/__TIME__/__TIMESTAMP__ source, two runs a minute apart'
+$null = Compare-Objects (Join-Path $ds 'stamp1.obj') (Join-Path $ds 'stamp2.obj') '__DATE__/__TIME__/__TIMESTAMP__ source, two runs a few seconds apart'
 
 $null = Invoke-Probe -Id 'stamp-brepro-run1' -Exe $cl -CmdArgs @('/nologo', '/c', '/Brepro', '/Fobs1.obj', 'stamp.c') -WorkDir $ds
-Start-Sleep -Seconds 65
+Start-Sleep -Seconds 3
 $null = Invoke-Probe -Id 'stamp-brepro-run2' -Exe $cl -CmdArgs @('/nologo', '/c', '/Brepro', '/Fobs2.obj', 'stamp.c') -WorkDir $ds
-$null = Compare-Objects (Join-Path $ds 'bs1.obj') (Join-Path $ds 'bs2.obj') 'the same source with /Brepro, two runs a minute apart -- /Brepro must NOT fix this'
+$null = Compare-Objects (Join-Path $ds 'bs1.obj') (Join-Path $ds 'bs2.obj') 'the same source with /Brepro, two runs a few seconds apart -- /Brepro must NOT fix this'
 
 # Show the literal time strings the two objects carry.
 foreach ($n in @('stamp1', 'stamp2', 'bs1', 'bs2')) {
@@ -182,8 +182,8 @@ Add-Note ''
 $dn = New-Scratch 'p11-nostamp'
 Copy-Sources $dn
 $null = Invoke-Probe -Id 'nostamp-run1' -Exe $cl -CmdArgs @('/nologo', '/c', '/Fon1.obj', 'det.c') -WorkDir $dn
-Start-Sleep -Seconds 65
+Start-Sleep -Seconds 3
 $null = Invoke-Probe -Id 'nostamp-run2' -Exe $cl -CmdArgs @('/nologo', '/c', '/Fon2.obj', 'det.c') -WorkDir $dn
-$null = Compare-Objects (Join-Path $dn 'n1.obj') (Join-Path $dn 'n2.obj') 'a source with no temporal macro, two runs a minute apart'
+$null = Compare-Objects (Join-Path $dn 'n1.obj') (Join-Path $dn 'n2.obj') 'a source with no temporal macro, two runs a few seconds apart'
 
 Add-DirListing $ds

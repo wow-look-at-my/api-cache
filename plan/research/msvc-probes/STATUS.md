@@ -81,9 +81,61 @@ localization work has an English-only en-US toolset to measure against.
 3. A local `pwsh -NoProfile -Command` parse check of every script before the
    push, if `pwsh` is present in this sandbox; otherwise a mechanical scan.
 
+## Run 2: HUNG, cancelled by the coordinator
+
+<https://github.com/wow-look-at-my/api-cache/actions/runs/34729507919> (job 103649573672)
+
+The parse error was fixed and the probes ran for real. The job then hung in
+"run the probes" from 01:02:47 until it was cancelled at ~01:40.
+
+**Where.** The artifact stops inside family p01 at probe `compile-subdir-relpath`
+(`cl /nologo /c sub\bar.c`). That probe's `.stdout.txt` holds `bar.c` and its
+`.stderr.txt` is empty, but there is **no `.exit.txt`** -- and `.exit.txt` is
+written on the line after the wait returns. So cl.exe compiled the file
+successfully and the HARNESS never came back.
+
+**Why.** cl.exe spawns `vctip.exe`, the MSVC telemetry uploader. It inherits
+cl's stdout and stderr handles and outlives cl. PowerShell's
+`Start-Process -Wait -RedirectStandardOutput <file>` waits for the redirection
+pipe to reach EOF as well as for the process to exit, so a surviving vctip holds
+that pipe open forever and the wait never returns on a compile that already
+succeeded. The runner confirms the process at cancellation:
+
+```
+2026-09-13T01:40:14.0872352Z Terminate orphan process: pid (4204) (vctip)
+```
+
+**Fixes applied for run 3:**
+
+1. `Invoke-Probe` no longer uses `Start-Process -Redirect*` at all. It writes a
+   per-probe `.run.cmd` and runs `cmd.exe /c <that file>`, letting **cmd** do
+   `> stdout 2> stderr < NUL`. The child then writes to FILE handles rather than
+   pipes, so an orphaned vctip cannot hold the parent open, and `< NUL`
+   guarantees no invocation can block reading console input.
+2. Every probe has a **120 s timeout**: `Start-Process -PassThru` (no `-Wait`),
+   then `WaitForExit(120000)`, then `Kill($true)` on the whole process tree.
+   The exit status is recorded as `TIMEOUT` and the markdown says so in bold --
+   a real finding, never a silent skip.
+3. `ConvertTo-CmdArg` refuses (throws on) any argument holding `% ^ & < > |` or
+   a quote, so a probe can never silently run a command line different from the
+   one it records.
+4. The driver prints `=== start <family>/<id>` and `=== end <family>/<id> exit=N`
+   for every probe, plus `FAMILY START` / `FAMILY END ... (Ns)` markers, so a
+   future hang is attributable straight from the step log.
+5. `timeout-minutes: 15` on the job and `12` on the probe step.
+6. Telemetry opt-out env (`VSCMD_SKIP_SENDTELEMETRY`, `VCTIP_TELEMETRY_OPTOUT`)
+   so vctip preferably never starts.
+7. p11's three 65 s sleeps became 3 s. `__TIME__` is `HH:MM:SS`, so seconds are
+   enough to move it; the minute-long waits bought nothing.
+
+The same cmd-file treatment was applied to the two probes that call
+`Start-Process` directly: p03's sccache-detection re-implementation and p09's
+deliberate real-pipe colour test (which keeps its `cl | findstr` pipe, because
+that pipe IS the measurement, but no longer hands PowerShell one).
+
 ## Left to do
 
-- [ ] fix the parse error and re-run (run 2)
+- [ ] re-run (run 3) and confirm all 11 families complete
 - [ ] copy the artifact captures into `results/*.md`
 - [ ] `README.md`: index + 20-line summary + the contradictions with `msvc.md`
 - [ ] `corrections.md`

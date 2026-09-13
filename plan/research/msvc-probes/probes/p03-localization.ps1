@@ -69,8 +69,15 @@ function Get-ShowIncludesPrefix {
     $cmdArgs += @('-nologo', '-showIncludes', '-c', '-Fonul', '-I.', '-E', 'test.c')
     $o = Join-Path $script:Raw 'detect.stdout.txt'
     $e = Join-Path $script:Raw 'detect.stderr.txt'
-    $p = Start-Process -FilePath $Exe -ArgumentList $cmdArgs -WorkingDirectory $Dir `
-        -RedirectStandardOutput $o -RedirectStandardError $e -NoNewWindow -Wait -PassThru
+    # Same cmd-file redirection as Invoke-Probe, for the same vctip reason.
+    $bat = Join-Path $script:Raw 'detect.run.cmd'
+    $q = @(ConvertTo-CmdArg $Exe) + @($cmdArgs | ForEach-Object { ConvertTo-CmdArg $_ })
+    Set-Content -Path $bat -Encoding ascii -Value @(
+        '@echo off',
+        (($q -join ' ') + ' > "' + $o + '" 2> "' + $e + '" < NUL')
+    )
+    $p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $bat) -WorkingDirectory $Dir -NoNewWindow -PassThru
+    if (-not $p.WaitForExit($script:ProbeTimeoutMs)) { try { $p.Kill($true) } catch { }; throw 'showIncludes prefix detection TIMED OUT' }
     $result = [ordered]@{ Exit = $p.ExitCode; Prefix = $null; Stream = $null; Line = $null }
     foreach ($stream in @('stderr', 'stdout')) {
         $text = ConvertFrom-AnsiBytes (Read-Bytes $(if ($stream -eq 'stderr') { $e } else { $o }))

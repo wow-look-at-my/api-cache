@@ -35,7 +35,7 @@ jobs:
   probe:
     name: cl.exe probes (windows-latest)
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 15
     defaults:
       run:
         shell: pwsh
@@ -60,9 +60,18 @@ jobs:
           Write-Host "INCLUDE=$env:INCLUDE"
 
       - name: run the probes
+        timeout-minutes: 12
         env:
           PROBE_RESULTS: ${{ github.workspace }}\plan\research\msvc-probes\ci-results
           PROBE_SCRATCH: C:\p
+          # vctip.exe is the MSVC telemetry uploader cl.exe spawns. It inherits
+          # cl's stdout/stderr and outlives it, which is what wedged run 2.
+          # The harness no longer gives it a pipe to hold, and these keep it
+          # from starting at all where the toolset honours them.
+          VSCMD_SKIP_SENDTELEMETRY: '1'
+          VCTIP_TELEMETRY_OPTOUT: '1'
+          DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+          POWERSHELL_TELEMETRY_OPTOUT: '1'
         run: ./plan/research/msvc-probes/probes/run-all.ps1
 
       - name: step summary
