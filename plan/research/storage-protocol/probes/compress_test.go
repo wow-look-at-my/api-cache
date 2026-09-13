@@ -250,3 +250,70 @@ func BenchmarkCodecConstruct(b *testing.B) {
 		}
 	})
 }
+
+// Streaming decode vs one-shot decode of the same bytes. A container whose
+// codec layer is io.Reader-shaped forces the streaming path; a cache entry
+// whose decoded size is known can use the one-shot path instead.
+func BenchmarkDecodeStreamVsOneShot(b *testing.B) {
+	src := load(b, "testdata/mid.o")
+	e := zstdEnc(zstd.SpeedDefault)
+	enc := e.EncodeAll(src, nil)
+	e.Close()
+
+	b.Run("zstd/DecodeAll/pooled", func(b *testing.B) {
+		d, _ := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+		defer d.Close()
+		dst := make([]byte, 0, len(src))
+		b.SetBytes(int64(len(src)))
+		b.ReportAllocs()
+		for b.Loop() {
+			if _, err := d.DecodeAll(enc, dst[:0]); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("zstd/NewReader-per-call/stream", func(b *testing.B) {
+		dst := make([]byte, len(src))
+		b.SetBytes(int64(len(src)))
+		b.ReportAllocs()
+		for b.Loop() {
+			r, err := zstd.NewReader(bytes.NewReader(enc), zstd.WithDecoderConcurrency(1))
+			if err != nil {
+				b.Fatal(err)
+			}
+			if _, err := io.ReadFull(r, dst); err != nil {
+				b.Fatal(err)
+			}
+			r.Close()
+		}
+	})
+
+	var l bytes.Buffer
+	w := lz4.NewWriter(&l)
+	w.Write(src)
+	w.Close()
+	lz4b := l.Bytes()
+	b.Run("lz4/NewReader-per-call/stream", func(b *testing.B) {
+		dst := make([]byte, len(src))
+		b.SetBytes(int64(len(src)))
+		b.ReportAllocs()
+		for b.Loop() {
+			r := lz4.NewReader(bytes.NewReader(lz4b))
+			if _, err := io.ReadFull(r, dst); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("lz4/Reset/stream", func(b *testing.B) {
+		dst := make([]byte, len(src))
+		r := lz4.NewReader(nil)
+		b.SetBytes(int64(len(src)))
+		b.ReportAllocs()
+		for b.Loop() {
+			r.Reset(bytes.NewReader(lz4b))
+			if _, err := io.ReadFull(r, dst); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
