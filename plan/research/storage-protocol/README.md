@@ -10,9 +10,11 @@ options; no decisions.
 | `local-layout.md` | ccache, sccache, Bazel/bazel-remote and go-s3-server on-disk layouts; the container-vs-CAS decision; measured lookup, restore and hashing costs; Windows, NFS and atomicity |
 | `container-format.md` | tar, ccache's result format, a hand-rolled framed format, zip and **binpazer** as the multi-output entry container; measured framing overhead, pack/unpack, single-member extraction, and binpazer's streaming-writer gap |
 | `compression.md` | zstd vs lz4 vs s2 vs none on real `-g -O2` objects; ratios, encode/decode throughput, the hot-local vs remote split, and the codec-instance trap |
-| `remote-protocols.md` | go-s3-server native, bazel-remote HTTP, REAPI v2, ccache HTTP/Redis/storage-helper, sccache object stores, Gradle, GHA v2; whether one server can speak several; what AC/CAS buys and costs |
+| `remote-protocols.md` | go-s3-server native, bazel-remote HTTP, REAPI v2, ccache HTTP/Redis/storage-helper, sccache object stores, Gradle, Turborepo, Nx, GHA v2; whether one server can speak several; what AC/CAS buys and costs |
 | `consistency-and-safety.md` | read-after-write, concurrent writers, corruption and self-heal, poisoning and trust, eviction, known-key-index staleness |
 | `probes/` | every measurement, its source, and its results. `run.sh` regenerates. `gen-testdata.sh` builds the corpus from real compiler output |
+| `STATUS.md` | what the interrupted first session finished, what was left, and how the gap was closed |
+| `PREDECESSOR-TRAIL.md` | the first session's own notes and its ordered tool-call log, recovered from its transcript |
 
 ## Where the numbers come from
 

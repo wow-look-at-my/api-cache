@@ -405,7 +405,7 @@ receiver reading an entry off a socket either buffers it or walks it linearly.
 | | tar | ccache `.R` | ACE1 framed | zip | binpazer |
 |---|---|---|---|---|---|
 | index / random access | none — walk | none — walk | fixed-width table, O(1) | central directory, by name | Block Index by `type_id` + footer; names need a directory block |
-| framing overhead (4 members, 580 KB) | +3,397 B | ~+40 B | +72 B | +450 B | +573 B |
+| framing overhead (4 members, 580 KB) | +3,758…+4,084 B | ~+40 B | +72 B | +450 B | +576…+582 B |
 | member naming | string path | `u8` role id | `u8` role id | string path | interned GUID type; **no per-block name** |
 | per-member compression | no (whole-stream only) | no — whole payload, one codec + level in the header | possible, not specified | yes, but only deflate/stored in practice | **yes**, per block, `codec_id` registry incl. zstd and lz4, plus a GUID escape |
 | integrity | none | XXH3-128 over header+payload, uncompressed | trailer field, unspecified | CRC-32 per member (over uncompressed bytes) | CRC-32C per block over the **stored** bytes, optional per block |
@@ -439,8 +439,8 @@ read, with no C implementation, no spec, and no forward-compatibility story
 beyond a version byte.
 
 **zip** buys name-keyed lookup and universal tooling, at 6× ACE1's overhead and
-the slowest single-member read measured (737 µs — `archive/zip` re-parses the
-central directory per open). sccache's use of it as a stored-member directory
+the slowest uncompressed single-member read measured (413 µs on ubuntu, 737 µs
+on the sandbox — `archive/zip` re-parses the central directory per open). sccache's use of it as a stored-member directory
 around zstd streams is a reasonable compromise, and the fact that any developer
 can `unzip` a cache entry to debug it is worth something.
 
@@ -452,7 +452,8 @@ are specific rather than general:
   of codec support. This is the feature tar and ccache's format both lack and
   the one that lets stderr stay uncompressed while DWARF gets zstd-3.
 - Per-block CRC-32C over the stored bytes, checkable before decoding, at a
-  measured ~34% pack cost and ~5% read cost.
+  measured ~11% pack cost on ubuntu — inside the run-to-run spread on the other
+  two runners — and free on read everywhere.
 - A C implementation in the same repository, which matters if a thin native
   client is ever wanted: a compiler wrapper that must start in under a
   millisecond is exactly the place a Go runtime is unwelcome, and a `mmap` +
@@ -464,13 +465,16 @@ are specific rather than general:
 Its costs are equally specific: **no per-block name**, so a directory block is
 mandatory and the read path is footer → index → directory → member rather than
 one table read; **the index requires a seekable writer**, so streaming straight
-onto the wire is out; **~2× ACE1's single-member read** and 60× the
-allocations; and **no raw-file escape**, so hard-link/reflink restore of the
-object is not expressible.
+onto the wire is out; **1.5–3.1× ACE1's single-member read** depending on the
+machine (worst on the ubuntu runner, best on the M1) and 60× the allocations;
+and **no raw-file escape**, so hard-link or clone restore of the object is not
+expressible. That last one has grown in weight since the macOS run:
+`clonefile(2)` is supported on APFS, is the fastest restore measured anywhere,
+and needs the object to be its own file.
 
-None of that is disqualifying. Put next to the **1,277 µs** it takes to write
-the object back out on the same machine, the difference between a 64 µs and a
-203 µs extract is 11% of the restore. The allocation count is the number worth
+None of that is disqualifying. Put next to the **1,266 µs** it takes to write
+the object back out on the same machine, the difference between a 60 µs and a
+187 µs extract is 10% of the restore. The allocation count is the number worth
 watching, and it is mostly `io.ReadAll` and per-block codec construction rather
 than the format itself.
 
