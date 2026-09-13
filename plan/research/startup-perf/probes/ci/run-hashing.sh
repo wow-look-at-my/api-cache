@@ -23,13 +23,35 @@ N="${BENCH_N:-60}"
 	echo "- commit: \`${GITHUB_SHA:-?}\`"
 	echo "- run: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-?}/actions/runs/${GITHUB_RUN_ID:-?}"
 	echo "- go: $(go version)"
+	# The CPU feature name differs by architecture, and getting it wrong makes
+	# the sha256 row unreadable: x86 reports `sha_ni` in `flags`, while ARM64
+	# reports `sha2` in `Features`. An arm64 run once printed "sha_ni absent"
+	# beside 2 GB/s of sha256, which is the crypto extensions plainly in use.
 	if [ -r /proc/cpuinfo ]; then
-		echo "- cpu: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
-		echo "- sha extensions: $(grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' | grep -c '^sha_ni$' | sed 's/^0$/absent (sha_ni not in flags)/;s/^1$/present (sha_ni)/')"
+		model="$(grep -m1 -E '^(model name|Model)' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+		[ -n "$model" ] || model="$(uname -m) (the kernel reports no model string)"
+		echo "- cpu: $model"
+		case "$(uname -m)" in
+			x86_64|amd64)
+				if grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' | grep -qx 'sha_ni'; then
+					echo "- sha acceleration: **present** (x86 \`sha_ni\`); Go's sha256 uses it"
+				else
+					echo "- sha acceleration: **absent** (no x86 \`sha_ni\`); Go's sha256 runs the generic path"
+				fi ;;
+			aarch64|arm64)
+				if grep -m1 '^Features' /proc/cpuinfo | tr ' ' '\n' | grep -qx 'sha2'; then
+					echo "- sha acceleration: **present** (ARMv8 \`sha2\` crypto extensions); Go's sha256 uses it"
+				else
+					echo "- sha acceleration: **absent** (no ARMv8 \`sha2\`); Go's sha256 runs the generic path"
+				fi ;;
+			*) echo "- sha acceleration: unknown for $(uname -m)" ;;
+		esac
 	else
 		echo "- cpu: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo unknown)"
-		echo "- sha extensions: ARM64 runners carry the ARMv8 crypto extensions, which Go's sha256 uses"
+		echo "- sha acceleration: Apple silicon carries the ARMv8 crypto extensions; Go's sha256 uses them"
 	fi
+	echo
+} >
 	echo
 } > "$OUT/hashing.md"
 

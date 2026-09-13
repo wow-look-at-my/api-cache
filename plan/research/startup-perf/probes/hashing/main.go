@@ -151,11 +151,11 @@ func main() {
 		note string
 	}
 	hashes := []entry{
-		{"sha256", sha256.New, "stdlib; uses SHA-NI where the CPU has it"},
-		{"sha512", sha512.New, "stdlib; AVX2 path, often faster than sha256 without SHA-NI"},
+		{"sha256", sha256.New, "stdlib; uses the CPU's sha acceleration where present (see the header)"},
+		{"sha512", sha512.New, "stdlib; no dedicated instruction on either arch here, so it tracks raw ALU throughput"},
 		{"sha1", sha1.New, "stdlib; broken for security, listed as a speed reference only"},
 		{"md5", md5.New, "stdlib; broken for security, listed as a speed reference only"},
-		{"crc32 (Castagnoli)", func() hash.Hash { return crc32.New(crc32.MakeTable(crc32.Castagnoli)) }, "SSE4.2 hardware CRC; not collision resistant"},
+		{"crc32 (Castagnoli)", func() hash.Hash { return crc32.New(crc32.MakeTable(crc32.Castagnoli)) }, "hardware CRC instruction on both x86 and ARM64; NOT collision resistant"},
 		{"fnv64a", func() hash.Hash { return fnv.New64a() }, "stdlib; not collision resistant"},
 	}
 	for _, e := range hashes {
