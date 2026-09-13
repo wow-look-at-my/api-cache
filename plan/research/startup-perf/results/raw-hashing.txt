@@ -1,0 +1,8 @@
+# hashing throughput
+
+- buffer: 4096 KiB, already in memory
+- iterations: 40, median reported
+
+| hash | MB/s | us per 200 KiB | note |
+|---|---|---|---|
+| sha256 | 341 | 586 | stdlib; uses SHA-NI where the CPU has it |
