@@ -1,0 +1,87 @@
+# msvc-probes: the MSVC facts behind plan/research/compile-semantics/msvc.md,
+# measured instead of cited.
+#
+# msvc.md was written from documentation and from reading ccache, sccache and
+# buildcache, because the sandbox those files were written in has no Windows.
+# This workflow runs every claim in it against a real cl.exe on windows-latest
+# and captures stdout, stderr and the exit code of each invocation separately
+# and verbatim.
+#
+# The push trigger is scoped to the TRIGGER file, not to the whole worker
+# directory: every worker on this branch commits constantly, and an ordinary
+# progress commit must not start a run. Writing a UTC timestamp into TRIGGER is
+# how a run is started.
+#
+# There is no continue-on-error and no fallback anywhere. A missing prerequisite
+# fails the job red, which is the only way it gets reported rather than quietly
+# producing a shorter report.
+name: msvc-probes
+
+on:
+  push:
+    paths:
+      - '.github/workflows/msvc-probes*.yml'
+      - 'plan/research/msvc-probes/TRIGGER'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: msvc-probes
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: cl.exe probes (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # Exports the MSVC environment (PATH, INCLUDE, LIB, VCToolsVersion, ...)
+      # into the following steps. Without it cl.exe is not on PATH at all and
+      # run-all.ps1 throws.
+      - name: MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: record the toolchain
+        run: |
+          Write-Host "cl.exe      : $((Get-Command cl.exe).Source)"
+          Write-Host "clang-cl.exe: $((Get-Command clang-cl.exe -ErrorAction SilentlyContinue).Source)"
+          Write-Host "VCToolsVersion=$env:VCToolsVersion"
+          Write-Host "INCLUDE=$env:INCLUDE"
+
+      - name: run the probes
+        env:
+          PROBE_RESULTS: ${{ github.workspace }}\plan\research\msvc-probes\ci-results
+          PROBE_SCRATCH: C:\p
+        run: ./plan/research/msvc-probes/probes/run-all.ps1
+
+      - name: step summary
+        if: always()
+        run: |
+          $dir = "${{ github.workspace }}\plan\research\msvc-probes\ci-results"
+          if (Test-Path "$dir\environment.md") { Get-Content -Raw "$dir\environment.md" >> $env:GITHUB_STEP_SUMMARY }
+          if (Test-Path "$dir\FAILURES.txt") {
+            "## FAILURES" >> $env:GITHUB_STEP_SUMMARY
+            '```' >> $env:GITHUB_STEP_SUMMARY
+            Get-Content -Raw "$dir\FAILURES.txt" >> $env:GITHUB_STEP_SUMMARY
+            '```' >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      # if: always() so the captures are fetchable when a family failed -- that
+      # is exactly the run whose output has to be read.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msvc-probes-results
+          path: plan/research/msvc-probes/ci-results/
+          if-no-files-found: error
