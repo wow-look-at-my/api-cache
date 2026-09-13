@@ -110,9 +110,24 @@ Add-Note ''
 
 # --- and through a PIPE rather than a file, which is what a wrapper actually
 #     gives the child. cmd's `| more` keeps a pipe on stdout.
+# The pipeline goes in a .cmd file rather than into -ArgumentList. .NET escapes
+# an embedded double quote as \" when it builds the child command line, and
+# cmd.exe does not understand that escape, so passing
+# `/c "<quoted cl path>" ... | findstr` directly mangles the command. A batch
+# file has no quoting round trip at all.
 $pipeOut = Join-Path $script:Raw 'colour-through-pipe.stdout.txt'
 $pipeErr = Join-Path $script:Raw 'colour-through-pipe.stderr.txt'
-$p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', "`"$cl`" /nologo /c /Fopipe.obj err.c | findstr /n .") `
+$pipeBat = Join-Path $d 'pipe.cmd'
+Set-Content -Path $pipeBat -Value @(
+    '@echo off',
+    ('"' + $cl + '" /nologo /c /Fopipe.obj err.c | findstr /n .')
+) -Encoding ascii
+Add-Note 'pipe.cmd:'
+Add-Note '```'
+Add-Note (Get-Content $pipeBat)
+Add-Note '```'
+Add-Note ''
+$p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'pipe.cmd') `
     -WorkingDirectory $d -RedirectStandardOutput $pipeOut -RedirectStandardError $pipeErr -NoNewWindow -Wait -PassThru
 $pb = Read-Bytes $pipeOut
 Add-Note '### colour-through-pipe'

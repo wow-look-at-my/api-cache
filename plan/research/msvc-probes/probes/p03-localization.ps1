@@ -41,8 +41,16 @@ Add-Note ''
 $null = Invoke-Probe -Id 'vslang-unset' -Exe $cl -CmdArgs @('/nologo', '/c', '/showIncludes', '/I.', 'test.c') -WorkDir $w -Comment `
     'Baseline, VSLANG untouched.'
 
-foreach ($pair in @(@(1041, 'Japanese'), @(1031, 'German'), @(1036, 'French'), @(2052, 'Chinese-Simplified'))) {
-    $lcid = $pair[0]; $name = $pair[1]
+# Hashtables, not nested arrays: @(@(1041,'Japanese'), @(1031,'German'))
+# UNROLLS into a flat @(1041,'Japanese',1031,'German') and the loop then walks
+# LCIDs and language names alternately instead of pairs.
+foreach ($pair in @(
+    @{ lcid = 1041; name = 'Japanese' },
+    @{ lcid = 1031; name = 'German' },
+    @{ lcid = 1036; name = 'French' },
+    @{ lcid = 2052; name = 'Chinese-Simplified' }
+)) {
+    $lcid = $pair.lcid; $name = $pair.name
     $null = Invoke-Probe -Id "vslang-$lcid" -Exe $cl -CmdArgs @('/nologo', '/c', '/showIncludes', '/I.', "/Fo$lcid.obj", 'test.c') `
         -WorkDir $w -EnvVars @{ VSLANG = "$lcid" } -Comment `
         "VSLANG=$lcid ($name). With no language pack installed cl falls back to English; the capture records which."
@@ -70,8 +78,15 @@ function Get-ShowIncludesPrefix {
             if (-not $line.EndsWith('test.h')) { continue }
             for ($i = $line.Length - 1; $i -ge 0; $i--) {
                 if ($line[$i] -ne ' ') { continue }
-                $cand = Join-Path $Dir $line.Substring($i + 1)
-                if (Test-Path $cand) {
+                # [IO.Path]::Combine plus [IO.File]::Exists, never Join-Path and
+                # Test-Path: the candidate substring is arbitrary text off a
+                # compiler message and may hold characters a PowerShell path
+                # cmdlet throws on, which under $ErrorActionPreference='Stop'
+                # would fail the family instead of rejecting the candidate.
+                # sccache's own check is exactly "does this path exist".
+                $cand = $null
+                try { $cand = [System.IO.Path]::Combine($Dir, $line.Substring($i + 1)) } catch { continue }
+                if ([System.IO.File]::Exists($cand)) {
                     $result.Prefix = $line.Substring(0, $i + 1)
                     $result.Stream = $stream
                     $result.Line = $line

@@ -71,8 +71,19 @@ function Compare-Objects {
 }
 
 # --- the same compile twice, in the SAME directory, seconds apart.
-foreach ($flags in @(@('Z7', @('/Z7')), @('Zi', @('/Zi')), @('none', @()), @('Brepro', @('/Brepro')), @('Z7-Brepro', @('/Z7', '/Brepro')))) {
-    $name = $flags[0]; $extra = $flags[1]
+# Hashtables, not nested arrays. PowerShell UNROLLS a nested array inside @(),
+# so @('Z7-Brepro', @('/Z7','/Brepro')) becomes the flat three-element
+# @('Z7-Brepro','/Z7','/Brepro') and the run silently loses /Brepro, while
+# @('none', @()) collapses to one element and leaves $extra null. A hashtable
+# is not an array, so nothing unrolls and every case runs the flags it names.
+foreach ($case in @(
+    @{ name = 'Z7';        extra = @('/Z7') },
+    @{ name = 'Zi';        extra = @('/Zi') },
+    @{ name = 'none';      extra = @() },
+    @{ name = 'Brepro';    extra = @('/Brepro') },
+    @{ name = 'Z7-Brepro'; extra = @('/Z7', '/Brepro') }
+)) {
+    $name = $case.name; $extra = @($case.extra)
     $d = New-Scratch "p11-$name"
     Copy-Sources $d
     $a = @('/nologo', '/c') + $extra + @('/Forun1.obj', 'det.c')
@@ -94,15 +105,17 @@ $d2 = New-Scratch 'p11-path-a-much-longer-directory-name-B'
 Copy-Sources $d1
 Copy-Sources $d2
 foreach ($z in @('Z7', 'none')) {
-    $extra = if ($z -eq 'Z7') { @('/Z7') } else { @() }
+    $extra = @(if ($z -eq 'Z7') { '/Z7' })
     $null = Invoke-Probe -Id "pathA-$z" -Exe $cl -CmdArgs (@('/nologo', '/c') + $extra + @("/Fo$z.obj", 'det.c')) -WorkDir $d1
     $null = Invoke-Probe -Id "pathB-$z" -Exe $cl -CmdArgs (@('/nologo', '/c') + $extra + @("/Fo$z.obj", 'det.c')) -WorkDir $d2
     $null = Compare-Objects (Join-Path $d1 "$z.obj") (Join-Path $d2 "$z.obj") "same source, two different absolute directories, flags: $($extra -join ' ')"
     # Does either object carry its own directory as a literal string?
-    foreach ($pair in @(@($d1, "$z.obj"), @($d2, "$z.obj"))) {
-        $obj = Join-Path $pair[0] $pair[1]
+    # Again a hashtable per case: @(@($d1,$n), @($d2,$n)) would unroll to four
+    # bare strings, and $pair[0] would index a CHARACTER out of one of them.
+    foreach ($pair in @(@{ dir = $d1; file = "$z.obj" }, @{ dir = $d2; file = "$z.obj" })) {
+        $obj = Join-Path $pair.dir $pair.file
         $txt = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($obj))
-        Add-Note ('`' + $obj + '` contains its own directory path as a literal string: **' + $txt.Contains($pair[0]) + '**')
+        Add-Note ('`' + $obj + '` contains its own directory path as a literal string: **' + $txt.Contains($pair.dir) + '**')
     }
     Add-Note ''
 }

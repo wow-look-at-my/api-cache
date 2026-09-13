@@ -40,8 +40,24 @@ function Start-Family {
     ) -Encoding utf8
 }
 
+# Add-Note takes a string, an ARRAY of strings, or the empty string.
+#
+# It is deliberately NOT [Parameter(Mandatory)][string]. A mandatory parameter
+# in PowerShell implicitly rejects null and the empty string, so `Add-Note ''`
+# -- the blank line between two markdown blocks, used on nearly every page --
+# would throw "Cannot bind argument ... because it is an empty string". And a
+# plain [string] would coerce an array into ONE space-joined line, which
+# silently flattens every multi-line listing. [object[]] keeps one element per
+# line and accepts both.
 function Add-Note {
-    param([Parameter(Mandatory)][string]$Text)
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [AllowEmptyCollection()]
+        [object[]]$Text = @('')
+    )
+    if ($null -eq $Text) { $Text = @('') }
+    if ($Text.Count -eq 0) { return }
     Add-Content -Path $script:Log -Value $Text -Encoding utf8
 }
 
