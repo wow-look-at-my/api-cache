@@ -51,8 +51,6 @@ N="${BENCH_N:-60}"
 		echo "- sha acceleration: Apple silicon carries the ARMv8 crypto extensions; Go's sha256 uses them"
 	fi
 	echo
-} >
-	echo
 } > "$OUT/hashing.md"
 
 ( cd "$P/hashing" && CGO_ENABLED=0 go build -o "$OUT/hashbench" . )

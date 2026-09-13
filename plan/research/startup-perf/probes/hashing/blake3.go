@@ -13,8 +13,10 @@ import (
 
 // blake3Note measures BLAKE3 when the module is available.
 // lukechampine.com/blake3 is MIT licensed. It is a pure-Go implementation with
-// an AVX-512 path, which matters here: this CPU has AVX-512 but NOT SHA-NI, so
-// BLAKE3 and sha256 are not competing on equal hardware support.
+// an AVX-512 path on x86 and a generic path on ARM64, so its two rows across
+// architectures are not comparable with each other, and on a CPU that carries
+// sha acceleration it is not competing with sha256 on equal hardware support
+// either. The job header records which acceleration each runner has.
 func blake3Note() {
 	buf := benchBuf
 	h := blake3.New(32, nil)
