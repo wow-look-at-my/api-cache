@@ -35,8 +35,14 @@ N="${BENCH_N:-400}"
 ( cd "$P/trailer"          && CGO_ENABLED=0 go build -o "$OUT/trailer" . )
 ( cd "$P/trailer/appender" && CGO_ENABLED=0 go build -o "$OUT/appender" . )
 ( cd "$P/trailer/binpazer" && CGO_ENABLED=0 go build -o "$OUT/binpazerbench" . )
-"${CC:-cc}" -O2 -I "$D/vendor/binpazer-c" -o "$OUT/binpazer-c" \
-	"$P/trailer/cprobe/binpazer_c.c" "$D/vendor/binpazer-c/binpazer.c"
+# The C reader is compiled straight out of the refs/bin-file-fmt submodule, so
+# the Go and the C halves of the measurement are the same revision of the
+# format. REFS resolves from this file: probes/ci -> probes -> startup-perf ->
+# research -> plan -> repo root.
+REFS="$(cd "$D/../../../../../refs/bin-file-fmt" && pwd)"
+[ -f "$REFS/c/binpazer.c" ] || { echo "FATAL: submodule refs/bin-file-fmt is not checked out (no $REFS/c/binpazer.c). The workflow needs submodules: true." >&2; exit 1; }
+"${CC:-cc}" -O2 -I "$REFS/c" -o "$OUT/binpazer-c" \
+	"$P/trailer/cprobe/binpazer_c.c" "$REFS/c/binpazer.c"
 
 "$OUT/appender" "$OUT/trailer" "$OUT/trailer-0"   3072     > /dev/null
 "$OUT/appender" "$OUT/trailer" "$OUT/trailer-1m"  1048576  > /dev/null

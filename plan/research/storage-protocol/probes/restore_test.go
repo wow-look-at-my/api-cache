@@ -161,9 +161,35 @@ const sysCopyFileRange = 326 // x86-64 copy_file_range
 
 const ficlone = 0x40049409 // FICLONE: _IOW(0x94, 9, int)
 
+// TestReflinkSupport states, in the results, whether the filesystem under the
+// probe supports FICLONE. It never skips: "unsupported" is the finding, and a
+// silent skip would read as "not measured".
+func TestReflinkSupport(t *testing.T) {
+	dir := t.TempDir()
+	src := srcFile(t, dir, 512<<10)
+	in, err := os.Open(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer in.Close()
+	out, err := os.Create(filepath.Join(dir, "clone.o"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close()
+	_, _, e := syscall.Syscall(syscall.SYS_IOCTL, out.Fd(), uintptr(ficlone), uintptr(in.Fd()))
+	if e != 0 {
+		t.Logf("FICLONE: NOT SUPPORTED on this filesystem (%v). "+
+			"Reflink restore is unavailable here; ext4 has no reflink support.",
+			syscall.Errno(e))
+		return
+	}
+	t.Logf("FICLONE: SUPPORTED on this filesystem")
+}
+
 // Restore by reflink: a copy-on-write clone. Safe like a copy, cheap like a
-// link — where the filesystem supports it. Reports EOPNOTSUPP otherwise, and
-// that answer is itself the finding.
+// link — where the filesystem supports it. TestReflinkSupport records the
+// verdict either way; this benchmark can only run where it is supported.
 func BenchmarkRestoreReflink(b *testing.B) {
 	dir := b.TempDir()
 	src := srcFile(b, dir, 512<<10)
@@ -180,7 +206,7 @@ func BenchmarkRestoreReflink(b *testing.B) {
 	_, _, e := syscall.Syscall(syscall.SYS_IOCTL, out.Fd(), uintptr(ficlone), uintptr(in.Fd()))
 	out.Close()
 	if e != 0 {
-		b.Skipf("FICLONE unsupported on this filesystem: %v", syscall.Errno(e))
+		b.Skipf("FICLONE unsupported here; see TestReflinkSupport in the tables: %v", syscall.Errno(e))
 	}
 	b.SetBytes(512 << 10)
 	for b.Loop() {
@@ -193,7 +219,9 @@ func BenchmarkRestoreReflink(b *testing.B) {
 		if e != 0 {
 			b.Fatal(syscall.Errno(e))
 		}
-		os.Rename(dst+".part", dst)
+		if err := os.Rename(dst+".part", dst); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 

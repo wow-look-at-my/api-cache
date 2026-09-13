@@ -29,7 +29,8 @@ func load(tb testing.TB, p string) []byte {
 	tb.Helper()
 	b, err := os.ReadFile(p)
 	if err != nil {
-		tb.Skipf("missing %s: run gen-testdata.sh", p)
+		tb.Fatalf("corpus file %s is missing: run gen-testdata.sh. A probe never "+
+			"skips: an absent input is a broken run, not a smaller one. (%v)", p, err)
 	}
 	return b
 }

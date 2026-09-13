@@ -55,9 +55,13 @@ W="$R/weird dir"
 step "create the weird-name header set" sh -c '
 	set -e
 	mkdir -p "$1"
+	n=0
 	for f in "sp ace.h" "dol\$lar.h" "hash#mark.h" "back\\slash.h" "colon:c.h"; do
-		# distinct contents: gcc dedups identical-content #pragma once headers (see finding)
-		printf "#pragma once\nint fn_%d(void);\n" "$(( $(printf "%s" "$f" | wc -c) ))" > "$1/$f"
+		n=$((n + 1))
+		# Contents MUST be unique per file: gcc implements #pragma once by
+		# comparing file CONTENT, so byte-identical headers are deduped and
+		# vanish from the dep list (that hazard is probed separately below).
+		printf "#pragma once\nint fn_%d(void);\n" "$n" > "$1/$f"
 	done
 	{
 		echo "#include \"sp ace.h\""

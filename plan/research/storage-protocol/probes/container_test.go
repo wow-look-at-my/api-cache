@@ -321,8 +321,13 @@ func BenchmarkContainerReadObjectOnly(b *testing.B) {
 	})
 
 	p := b.TempDir() + "/entry.ace"
-	os.WriteFile(p, aceBlob, 0o644)
-	f, _ := os.Open(p)
+	if err := os.WriteFile(p, aceBlob, 0o644); err != nil {
+		b.Fatal(err)
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		b.Fatal(err)
+	}
 	defer f.Close()
 	b.Run("framed/pread", func(b *testing.B) {
 		b.SetBytes(n)

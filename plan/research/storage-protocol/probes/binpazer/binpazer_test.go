@@ -37,7 +37,8 @@ func load(tb testing.TB, p string) []byte {
 	tb.Helper()
 	b, err := os.ReadFile(p)
 	if err != nil {
-		tb.Skipf("missing %s: run ../gen-testdata.sh", p)
+		tb.Fatalf("corpus file %s is missing: run ../gen-testdata.sh. A probe never "+
+			"skips: an absent input is a broken run, not a smaller one. (%v)", p, err)
 	}
 	return b
 }
@@ -149,8 +150,13 @@ func BenchmarkBaselineReadOne(b *testing.B) {
 
 	aceBlob := acePack(rev)
 	p := b.TempDir() + "/entry.ace"
-	os.WriteFile(p, aceBlob, 0o644)
-	f, _ := os.Open(p)
+	if err := os.WriteFile(p, aceBlob, 0o644); err != nil {
+		b.Fatal(err)
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		b.Fatal(err)
+	}
 	defer f.Close()
 	b.Run("framed/pread", func(b *testing.B) {
 		b.SetBytes(n)
@@ -554,12 +560,23 @@ func BenchmarkBinpazerReadOne(b *testing.B) {
 	}
 
 	// From a real file on disk rather than a []byte, so the syscalls are real.
-	blob, _ := bpPack(rev, bp.CodecStored, false)
+	blob, err := bpPack(rev, bp.CodecStored, false)
+	if err != nil {
+		b.Fatal(err)
+	}
 	p := b.TempDir() + "/entry.bp"
-	os.WriteFile(p, blob, 0o644)
-	f, _ := os.Open(p)
+	if err := os.WriteFile(p, blob, 0o644); err != nil {
+		b.Fatal(err)
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		b.Fatal(err)
+	}
 	defer f.Close()
-	st, _ := f.Stat()
+	st, err := f.Stat()
+	if err != nil {
+		b.Fatal(err)
+	}
 	b.Run("stored/file", func(b *testing.B) {
 		b.SetBytes(n)
 		b.ReportAllocs()
