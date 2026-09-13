@@ -1,0 +1,15 @@
+=== in-process per-op round trip cost (no process startup involved)
+go client: dial+roundtrip+close 157.0 us/op   roundtrip only (reused conn) 72.5 us/op
+c client:  dial+roundtrip+close 136.4 us/op   roundtrip only (reused conn) 72.1 us/op
+
+=== whole-process cost: fork+exec the client, which connects, round trips, exits
+ipc-cclient n=300  min=1.409  p50=1.546  p90=1.688  p99=2.021  mean=1.569  max=3.348 (ms)
+ipc-cclient-static n=300  min=1.267  p50=1.423  p90=1.537  p99=1.646  mean=1.439  max=3.170 (ms)
+ipc-goclient n=300  min=1.394  p50=1.737  p90=1.955  p99=2.204  mean=1.762  max=3.918 (ms)
+ipc-cclient n=300  min=1.314  p50=1.515  p90=1.843  p99=2.341  mean=1.564  max=2.555 (ms)
+ipc-cclient-static n=300  min=1.194  p50=1.314  p90=1.412  p99=1.709  mean=1.325  max=1.970 (ms)
+ipc-goclient n=300  min=1.342  p50=1.583  p90=1.771  p99=2.255  mean=1.611  max=5.532 (ms)
+
+=== reference: the same binaries doing NOTHING (no daemon contact)
+c-hello-dyn n=300  min=1.166  p50=1.273  p90=1.766  p99=2.141  mean=1.377  max=4.898 (ms)
+go-hello n=300  min=0.995  p50=1.259  p90=1.615  p99=1.939  mean=1.310  max=2.048 (ms)
