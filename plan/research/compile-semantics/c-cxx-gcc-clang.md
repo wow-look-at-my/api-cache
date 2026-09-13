@@ -650,10 +650,14 @@ expanded args are hashed) or its *path* (it must not be).
 
 ## 10. The rule table for gcc/clang
 
-This is the artifact the planner should start the gcc rule file from. It is a **table of
-meanings**, not a set of hand-written parse functions: every "how do I get the value out of
-this flag" question is answered by the `value` column, which names an **engine-owned
-parser**, and every "what does it mean" question is answered by the `role` column.
+This is the per-flag knowledge a gcc rule needs, written down as a table. **The table is a
+way of recording the findings, not a proposal for the rule surface** — the planner decides
+what the surface looks like. Whatever shape it takes, this content has to be expressed
+somewhere: each flag family needs a way to say how its value is spelled (the `value`
+column) and what the value means to the cache (the `role` column). Where a column names
+work I think the engine should do rather than a rule author (argument-syntax parsing,
+sibling derivation, prefix mapping), that is flagged as my opinion in §10.4 and in
+`key-derivation-model.md`, not as a decision.
 
 ### 10.1 The `value` vocabulary (engine-owned GNU argument syntax)
 

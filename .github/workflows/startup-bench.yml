@@ -11,16 +11,24 @@ name: startup-bench
 on:
   push:
     branches: ['claude/**']
+    # Only a change to the workflow or to a probe can change a number. Every
+    # other worker on this branch pushes constantly, and without this filter
+    # each of those pushes started a four-runner benchmark that the next push
+    # then cancelled, so nothing ever finished.
+    paths:
+      - '.github/workflows/startup-bench.yml'
+      - 'plan/research/startup-perf/probes/**'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Every worker on this branch pushes often, and a superseded bench run is of no
-# use to anyone. Cancel the older one rather than queueing four runners for it.
+# Keyed on the COMMIT, never the branch, and never cancelling. A benchmark that
+# is killed part way through produces no number at all, which is strictly worse
+# than two runs overlapping.
 concurrency:
-  group: startup-bench-${{ github.ref }}
-  cancel-in-progress: true
+  group: startup-bench-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   bench:
