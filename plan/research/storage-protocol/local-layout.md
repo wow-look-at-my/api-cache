@@ -588,19 +588,70 @@ reason the container-vs-blobs gap widens to 2.7× there. Beyond the timings:
 - Hard links exist (`CreateHardLinkW`, NTFS) but cost 538 µs against ext4's
   12 µs, and the read-only-file protection ccache relies on behaves differently.
 
-**macOS and the `clonefile` verdict.** APFS is copy-on-write throughout, so
-this is the one platform where a *clone* restore — a metadata-only copy that
-stays safe to write to, unlike a hard link — should genuinely be available.
-`probes/restore_darwin_test.go` calls it and reports the verdict either way
-rather than skipping. The result is in "The `clonefile` verdict" section of
-`README.md`'s open questions and in
-`probes/ci-results-macos-latest/tables.txt`. One methodological note worth
-keeping: the first version of that probe issued `syscall.Syscall(462, ...)`,
-the BSD table number, and got `EINVAL`. That was macOS's deprecated generic
-`syscall(2)` shim refusing the number, **not** APFS refusing the clone. The
-probe now calls the real libSystem symbol through
-`golang.org/x/sys/unix.Clonefile` and reports both results, because a wrong
-answer to a capability question is worse than no answer.
+### The `clonefile` verdict: APFS can do the thing ext4 cannot
+
+APFS is copy-on-write throughout, so this is the one platform where a *clone*
+restore — a metadata-only copy that, unlike a hard link, is **safe to write
+to** — should genuinely be available. `probes/restore_darwin_test.go` calls it
+and reports the verdict either way rather than skipping.
+
+**It is supported.** `[ci] macos`, from
+`probes/ci-results-repeat-34729790831/macos-latest/`:
+
+```
+clonefile(2) via libSystem: SUPPORTED; cloned 524288 bytes as a
+copy-on-write share
+```
+
+| restore method, `[ci] macos` | 200 KiB | 512 KiB | 5 MiB |
+|---|--:|--:|--:|
+| read + write + rename | 336 µs | 408 µs | 4,831 µs |
+| `link()` (hard link) | 266 µs | 251 µs | 227 µs |
+| **`clonefile(2)`** | **114 µs** | **167 µs** | **140 µs** |
+
+So on APFS the clone is **constant in the file size** like a hard link, is
+**faster** than a hard link on this machine, and is **34× faster than copying**
+a 5 MiB object — while leaving the restored file independently writable, which
+is the correctness cliff that makes ccache document `hard_link` as dangerous
+and `file_clone` as "completely safe to use". It also means **compression and
+clone-restore are mutually exclusive on the one platform where clone-restore
+works**: you cannot clone into a compressed blob any more than you can link
+into one.
+
+The design reading: the restore method should be **negotiated per platform, not
+chosen once**. `clonefile` on APFS, plain copy on ext4 (where `FICLONE` is
+`EOPNOTSUPP` and `copy_file_range` buys nothing), and on Windows a copy unless
+the volume is ReFS. And the entry should be stored **uncompressed on APFS** if
+the clone path is taken, which is a different capacity answer per platform.
+
+One methodological note worth keeping, because it nearly produced the opposite
+conclusion: the first version of that probe issued `syscall.Syscall(462, ...)`,
+the BSD table number, and got `EINVAL`, which reads exactly like "APFS refuses
+to clone". It was macOS's **deprecated generic `syscall(2)` shim** refusing the
+number. The probe now calls the real libSystem symbol through
+`golang.org/x/sys/unix.Clonefile` and reports both results side by side, so the
+distinction is on the record rather than waiting to be rediscovered.
+
+### How much a CI number moves between runs
+
+The identical suite was run twice, minutes apart, on the same three runner
+labels (runs `34729381343` and `34729790831`). Selected figures:
+
+| | ubuntu | windows | macos |
+|---|--:|--:|--:|
+| `os.Stat` | +1.7% | **−13.4%** | +1.3% |
+| `os.Stat` miss | +2.2% | −4.2% | −9.3% |
+| open + close | +0.2% | −7.5% | −1.9% |
+| read one container | −1.2% | +5.9% | **+36.1%** |
+| read four blobs | +1.2% | +2.0% | +8.6% |
+| copy + rename, 5 MiB | ~0% | ~0% | **+90%** |
+
+**A single figure from a shared CI runner is good to roughly ±2% on the Linux
+runner and ±15–35% on the other two.** Every conclusion in these documents
+turns on a ratio of 1.5× or more, which is why they survive that spread — but
+nothing here should be quoted to three significant figures, and a future
+decision that hinges on a 20% difference needs `-count` repetitions rather than
+one run. Raw files: `probes/ci-results-repeat-34729790831/`.
 
 **NFS.** Deleting an open file leaves a `.nfsXXXX` silly-rename stub; the
 directory walk must ignore it and the unlink must tolerate `ESTALE`. ccache's
