@@ -82,6 +82,24 @@ slower on a machine without it.
 | [results/hashing.md](results/hashing.md) | sha256/blake3/xxhash/crc32 throughput, x64 and ARM64 |
 | [options.md](options.md) | the options for closing the gap, each with its measured cost |
 
+## Platform coverage
+
+| measurement family | linux-x64 | linux-arm64 | macos-arm64 | windows-x64 |
+|---|:---:|:---:|:---:|:---:|
+| startup floor | yes | yes | yes (no static rows: platform limit) | yes |
+| config load | yes | — | yes | — |
+| cooked trailer | yes | — | — | — |
+| daemon round trip | yes | — | — | — |
+| hashing | yes | yes | — | — |
+| syscall counts | yes | — | — (no strace) | — (no strace) |
+
+The gaps are real gaps, not oversights, and each file says what its own gap
+costs the conclusion. The two that matter most: **the daemon comparison is
+Linux-only**, and on Windows its arithmetic changes completely against a 5.2 ms
+process floor; and **the trailer measurement is Linux-only**, so the "a trailer
+does not slow execve" result is an ELF-loader property that has not been
+re-checked against Mach-O or PE.
+
 `results/gha/` holds the raw artifacts each job uploaded, including hyperfine's
 per-run JSON. `results/raw-*.txt` are the development record from the sandbox
 and are marked superseded; they are not reported numbers.
