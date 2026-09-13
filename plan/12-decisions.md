@@ -116,7 +116,7 @@ Options: one global setting; per-platform negotiation.
 
 Evidence: `04-local-store.md`. Clone is 34x faster than copy on APFS and forbids compression; compression costs +48% to +143% on the hit path by platform.
 
-**Recommended: compress by default on every platform (zstd-1), restore by copy by default, clone and link as explicit opt-ins that disable compression.** The 34x clone on APFS is real but a Mac is where storage is scarcest and CPUs fastest, so capacity wins the default. Follow-up measurement that would change the APFS answer: APFS transparent per-file compression (decmpfs), which reads as plain bytes and clones as compressed extents; if a Go writer can produce it, APFS gets both.
+**Recommended: compress by default on every platform (zstd-1), restore by copy by default, clone and link as explicit opt-ins that disable compression.** The 34x clone on APFS is real but a Mac is where storage is scarcest and CPUs fastest, so capacity wins the default. Filesystem-specific paths follow the four rules in `04-local-store.md` (functional probe, opt-in when the format changes, fallback-and-log, CI on that filesystem), for the set actually in use: ext3/4, XFS, ZFS, APFS, NTFS, overlayfs. Follow-up measurement that would change the APFS answer: APFS transparent per-file compression (decmpfs), which reads as plain bytes and clones as compressed extents; if a Go writer can produce it, APFS gets both.
 
 ## 16. Sloppiness presets
 

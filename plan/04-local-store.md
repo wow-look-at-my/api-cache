@@ -55,15 +55,34 @@ Roles in the directory are a small closed enum, not free strings, so a restored 
 
 CRC-32C per block over the stored bytes (binpazer `has_crc`), checked on every read. 23 µs per 512 KiB on x86, 67 µs on the M1. Never SHA-256 for integrity: 62x the cost on a machine without `sha_ni` for nothing, since integrity is not authenticity. An entry that fails its CRC is treated as a miss, deleted, counted (`corrupt_entry`), and logged once per build.
 
+## Filesystems, and the rule for filesystem-specific code
+
+The filesystems in scope are the ones actually in use: ext3 and ext4, XFS, ZFS (Linux and macOS), APFS, NTFS, and overlayfs inside Docker (where the store is normally a bind-mounted host directory, so the host filesystem applies). Every one of them runs the same portable path: write a temp sibling, CRC every block, rename, restore by copy, verify on read. That path is the default everywhere and is the only path that is not optional.
+
+A filesystem-specific optimisation is admitted only under all of these rules, because a wrong guess here corrupts a build tree or a cache rather than slowing it:
+
+1. **It is discovered by a functional probe at store open, never by filesystem-type detection.** The probe performs the real operation on a throwaway file (clone it, read both copies back, compare bytes, write to the clone, confirm the original is untouched, delete both) and records the verdict in the store. A probe that fails for any reason records "unsupported" and logs once.
+2. **It is opt-in when it changes the storage format** (clone and link force the object out of the container and forbid compression), and automatic only when it changes nothing on disk (atime tracking, skipping our own compression on a dataset that already compresses).
+3. **Every failure of the optimised path falls back to the portable path for that operation and logs**, never to an error, and the fallback is counted so a store that keeps falling back is visible in `stats`.
+4. **It is tested in CI on that filesystem**, loop-mounted on a Linux runner (`10-testing-and-ci.md`), not assumed from documentation.
+
+The one type-based check is a read-only advisory: when the store directory is on ZFS with `compression` set on its dataset (the probe go-s3-server ships in `compression.go`, `dirIsZFS` plus `zfs get`), `compress="auto"` resolves to `never`, because the dataset compresses every block a second time for nothing. That check changes no bytes and only skips work, so it is allowed to be automatic; it never turns a feature on.
+
+Overlayfs notes: `rename` and hard links behave within a layer; `FICLONE` across layers is unsupported and the probe will say so; atime is unreliable and the atime probe will say so. A store on overlayfs is a store that happens to get the portable path, which is fine.
+
+ZFS notes: OpenZFS 2.2 added block cloning behind `FICLONE`, and its first releases shipped a data-corruption bug in that feature; the functional probe plus the byte comparison is the defence, and the plan does not enable clone on ZFS by default even when the probe passes. On macOS OpenZFS the probe decides; nothing is assumed.
+
 ## Restore
 
-The restore is where a hit spends its time (48x the read on ext4), so it is negotiated per platform and per filesystem at store-open time and cached in the store's runtime state:
+The restore is where a hit spends its time (48x the read on ext4). The default is copy. The methods a store may switch to, by opt-in and probe:
 
 | Filesystem | Method | Measured | Constraint |
 |---|---|---|---|
 | APFS, opt-in | `clonefile(2)` | 167 µs at 512 KiB, constant in size, 34x faster than copy at 5 MiB, safe to write to | the object must be stored uncompressed as its own file; not the default because compression matters more on a Mac |
-| btrfs, XFS with reflink | `FICLONE` | not measured (no runner); expected to behave like APFS | same |
-| ext4 (and the default everywhere) | read + write + rename | 1,266 µs at 512 KiB; `copy_file_range` buys nothing | none |
+| XFS with `reflink=1`, opt-in | `FICLONE` | to be measured on a loop-mounted XFS in CI before the option is enabled for it | same |
+| ZFS (OpenZFS 2.2+), opt-in | `FICLONE` block cloning | to be measured; not enabled by default even when the probe passes, see the ZFS note above | same, plus the dataset compression advisory |
+| overlayfs | copy | the portable path; clone across layers is unsupported | none |
+| ext3, ext4, and the default everywhere | read + write + rename | 1,266 µs at 512 KiB; `copy_file_range` buys nothing | none |
 | NTFS | `CopyFileEx` | 903 µs at 512 KiB | none; ReFS could clone, unmeasured |
 | any, `hard-link="safe"` rule and `restore="link"` setting | `link(2)` | 12 µs ext4, 272 µs APFS, 538 µs NTFS | cache file made read-only; mtime of the visible file is bumped with a `touch` so make and ninja see fresh output; never with compression |
 
