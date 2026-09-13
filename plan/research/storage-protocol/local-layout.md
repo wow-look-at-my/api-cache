@@ -16,13 +16,19 @@ outputs get back into the build tree**.
 > Run: <https://github.com/wow-look-at-my/api-cache/actions/runs/34728376981>.
 > Raw files in `probes/ci-results-ubuntu-latest/`.
 >
+> **`[ci] windows-latest`** — same AMD EPYC 7763 hardware, NTFS on `D:`,
+> MinGW g++, Go 1.26.8 windows/amd64, same run.
+> Raw files in `probes/ci-results-windows-latest/`.
+>
 > **`[sandbox]`** — Intel Xeon @2.80GHz, 4 vCPU, **no `sha_ni`** (avx2,
 > avx512f, bmi2), ext4 on a local virtio disk, Go 1.26.0, Firecracker VM.
 > Raw files in `probes/results/`.
 >
-> The two machines differ in exactly the way that makes the comparison useful:
-> one has the SHA-256 instruction and slow storage, the other has fast storage
-> and no SHA-256 instruction.
+> The machines differ in exactly the ways that make the comparison useful: the
+> CI Linux box has the SHA-256 instruction and slow storage, the sandbox has
+> fast storage and no SHA-256 instruction, and the Windows box is the same
+> silicon as the CI Linux box with a filesystem an order of magnitude slower
+> per syscall.
 
 ## What a compiler-cache entry actually is
 
@@ -254,51 +260,69 @@ the whole GBCI index is scoped to the `go-buildcache/v1<64-hex>` key shape.
 
 `probes/readcost_test.go`, hot page cache, ext4.
 
-| operation | `[ci]` ubuntu-latest ns/op | `[sandbox]` ns/op |
-|---|--:|--:|
-| `syscall.Stat` (hit) | 1,711 | 678 |
-| `syscall.Stat` (miss, ENOENT) | 1,174 | 511 |
-| `os.Stat` (hit, with FileInfo alloc) | 1,896 | 877 |
-| `os.Stat` (miss) | 1,331 | 713 |
-| open + close, 4 KiB file | 5,389 | 2,731 |
-| open + read-all, 4 KiB | 6,529 | 3,261 |
-| open + read-all, 200 KiB | 14,363 | 7,991 |
-| open + read-all, 512 KiB | 26,401 | 20,030 |
-| open + read-all, 5 MiB | 180,410 | 378,299 |
+| operation | `[ci]` ubuntu | `[ci]` **windows** | `[sandbox]` |
+|---|--:|--:|--:|
+| `syscall.Stat` (hit) | 1,711 | n/a | 678 |
+| `syscall.Stat` (miss, ENOENT) | 1,174 | n/a | 511 |
+| `os.Stat` (hit) | 1,896 | **19,169** | 877 |
+| `os.Stat` (miss) | 1,331 | **11,257** | 713 |
+| open + close, 4 KiB file | 5,389 | **21,877** | 2,731 |
+| open + read-all, 4 KiB | 6,529 | **30,210** | 3,261 |
+| open + read-all, 200 KiB | 14,363 | 40,696 | 7,991 |
+| open + read-all, 512 KiB | 26,401 | 55,206 | 20,030 |
+| open + read-all, 5 MiB | 180,410 | 528,243 | 378,299 |
 
-The CI runner's syscalls are uniformly ~2.5× slower (a hardened cloud kernel
-with full speculative-execution mitigations), while its large sequential reads
-are twice as fast. Both shapes are real deployment targets; the *ratios* below
-hold on both.
+All in ns/op. Three quite different machines, and the spread is the point.
+
+**Windows is an order of magnitude slower per file operation.** Same CPU as the
+Linux runner: `os.Stat` is **19.2 µs against 1.9 µs**, and opening and closing
+a file is 21.9 µs against 5.4 µs. Reading a 4 KiB file runs at 135 MB/s. NTFS
+plus Defender plus the Win32 path layer is a different cost regime, and any
+design validated only on Linux will be wrong about Windows by 10×.
+
+At 4,000 compiles, **one stat per lookup is 7.6 ms on Linux and 77 ms on
+Windows**. ccache's 2-to-4-level probe (three stats on a miss) is 23 ms and
+230 ms respectively. On Windows a fixed shard depth stops being a tidiness
+preference and becomes a measurable win.
 
 Three things fall out.
 
-**1. A miss is a stat, and a stat is cheap.** 1.2 µs `[ci]`, 0.5 µs
-`[sandbox]`. ccache's dynamic depth turns one miss into three stats — 3.5 µs
-`[ci]` — which is still nothing next to a compile, but it is 3× for no benefit
-if the depth is fixed instead. A fixed two-level shard costs one stat and needs
-no promotion logic, no `move_to_wanted_cache_level`, and no rename racing
-another process.
+**1. A miss is a stat, and a stat is cheap on Linux and not on Windows.**
+1.2 µs on Linux, 0.5 µs on the sandbox, **11.3 µs on Windows**. ccache's
+dynamic depth turns one miss into three stats. A fixed two-level shard costs
+one stat and needs no promotion logic, no `move_to_wanted_cache_level`, and no
+rename racing another process.
 
-**2. Open is ~3–4× stat.** 5.4 µs `[ci]` / 2.7 µs `[sandbox]` to open and close
-a file you then read nothing from. That is the tax a multi-blob layout pays per
-extra member.
+**2. Open costs ~3–4× a stat everywhere.** 5.4 µs Linux / 21.9 µs Windows /
+2.7 µs sandbox to open and close a file you then read nothing from. That is the
+tax a multi-blob layout pays per extra member, and it is the same multiple on
+every platform.
 
 **3. One container beats N blobs, and the gap is exactly the opens.** Same
 540 KiB of payload, as one file or as four (512 + 8 + 4 + 16 KiB):
 
-| layout | `[ci]` ns/op | `[sandbox]` ns/op |
-|---|--:|--:|
-| 1 open, read 540 KiB | 27,548 | 20,749 |
-| 4 opens, read 540 KiB total | 47,181 | 30,509 |
+| layout | `[ci]` ubuntu | `[ci]` **windows** | `[sandbox]` |
+|---|--:|--:|--:|
+| 1 open, read 540 KiB | 27,548 | 56,325 | 20,749 |
+| 4 opens, read 540 KiB total | 47,181 | **147,885** | 30,509 |
+| difference | +19.6 µs (1.7×) | **+91.6 µs (2.6×)** | +9.8 µs (1.5×) |
 
-+19.6 µs `[ci]` / +9.8 µs `[sandbox]` for three extra opens — ~6.5 µs and
-~3.3 µs each respectively, consistent with each machine's open+close number.
-At 4,000 compiles that is **78 ms `[ci]` / 39 ms `[sandbox]`** of wall clock
-across a whole build: real, but far smaller than one compile. The container
-wins, but it wins on *bytes-per-syscall*, not by an order of magnitude, and a
-CAS layout that de-duplicates a `.d` file across twenty configurations may well
-pay for the extra opens in disk space.
+Extrapolated to 4,000 compiles, the cost of splitting one result into four
+files instead of one:
+
+| | extra wall clock per build |
+|---|--:|
+| ubuntu-latest | 78 ms |
+| **windows-latest** | **366 ms** |
+| sandbox | 39 ms |
+
+On Linux the container's win is real but modest — 78 ms across a build that
+takes minutes. **On Windows it is 2.6× and 366 ms**, and that is with only four
+members; a CAS layout that also fetches a shared `.d` blob adds more. The
+container wins on *bytes-per-syscall*, and Windows is where syscalls are
+expensive enough for it to matter. A CAS layout that de-duplicates a `.d` file
+across twenty configurations still saves disk, but it should expect to pay for
+it in Windows latency.
 
 ## Measured: what a restore costs
 
@@ -360,7 +384,8 @@ Platform equivalents: `copy_file_range(2)` on Linux, `clonefile(2)` on macOS
 
 | hash | 4 KiB | 200 KiB | 512 KiB | 5 MiB | throughput |
 |---|--:|--:|--:|--:|--:|
-| SHA-256 `[ci]`, **with `sha_ni`** | 2.7 µs | 129 µs | 330 µs | 3,301 µs | **1,588 MB/s** |
+| SHA-256 `[ci]` ubuntu, **with `sha_ni`** | 2.7 µs | 129 µs | 330 µs | 3,301 µs | **1,588 MB/s** |
+| SHA-256 `[ci]` windows, same silicon | 2.8 µs | 130 µs | 332 µs | 3,324 µs | 1,577 MB/s |
 | SHA-256 `[sandbox]`, **no `sha_ni`** | 11.5 µs | 560 µs | 1,421 µs | 14,380 µs | **365 MB/s** |
 | CRC-32C `[ci]` | 0.17 µs | 8.9 µs | 23.2 µs | 227 µs | **23 GB/s** |
 | CRC-32C `[sandbox]` | 0.16 µs | 8.4 µs | 21.2 µs | 247 µs | **24 GB/s** |
@@ -376,8 +401,10 @@ two runners bracket the design question rather than answering it:
   AMD from Zen (2017) and on Intel mainstream desktop/server only from Ice Lake
   (2019) / Alder Lake; plenty of build machines and most CI VMs before that
   generation lack it, and the sandbox here is a live example.
-- **CRC-32C is machine-independent** — 23–24 GB/s on both, because it is the
-  `crc32q` instruction and has been on every x86-64 since SSE4.2 (2008).
+- **CRC-32C is machine-independent** — 21–24 GB/s on all three, because it is
+  the `crc32q` instruction and has been on every x86-64 since SSE4.2 (2008).
+  It is also the only number in this document that does not move with the
+  platform.
 - ccache does not use SHA-256. It uses **BLAKE3** (`src/ccache/hash.hpp`
   includes `blake3.h`), truncated to 20 bytes. BLAKE3's published single-thread
   throughput is around 1–3 GB/s on x86-64 with AVX2 and it does not depend on a
@@ -428,16 +455,25 @@ stronger: a torn entry after a power cut is a cache miss, not a wrong answer,
 fsync is worth roughly the cost of an fsync (hundreds of µs to milliseconds on
 a real disk) per store.
 
-**Windows.**
+**Windows.** Measured above: every file operation costs ~10× its Linux
+equivalent on the same silicon, which is the dominant Windows fact and the
+reason the container-vs-blobs gap widens to 2.6× there. Beyond the timings:
+
 - No xattrs. Metadata goes in a sidecar (go-s3-server's `.audit` JSON) or
   inside the container. Inside the container is strictly better here: one file,
-  no orphan sidecars, no `isSidecarName` filter in the directory walk.
+  no orphan sidecars, no `isSidecarName` filter in the directory walk, and — at
+  19 µs per stat — one fewer file to touch.
 - `MoveFileEx(MOVEFILE_REPLACE_EXISTING)` fails if the destination is open
-  without `FILE_SHARE_DELETE`. A concurrent reader of the old entry can
-  therefore block the rename, where POSIX would simply let the old inode live
-  on. The workaround is rename-to-a-random-name then delete, or retry.
+  without `FILE_SHARE_DELETE`, which Go's `os.Open` does not request. A
+  concurrent reader of the old entry can therefore block a store, where POSIX
+  simply lets the old inode live on. Unlinking an open file has the same
+  problem, which makes *eviction* racy too. `restore_portable_test.go` probes
+  both (`TestRenameOverOpenFile`, `TestUnlinkOpenFile`) and records the verdict
+  per platform rather than assuming it; on Linux both succeed and the open
+  handle keeps reading the old bytes.
 - `MAX_PATH` is 260 unless long paths are enabled *and* the path is prefixed
-  `\\?\`. A four-level shard plus a long cache root gets close.
+  `\\?\`. A four-level shard plus a long cache root gets close;
+  `TestLongPath` measures where it actually breaks.
 - Hard links exist (`CreateHardLinkW`, NTFS) but the read-only-file protection
   ccache relies on behaves differently.
 

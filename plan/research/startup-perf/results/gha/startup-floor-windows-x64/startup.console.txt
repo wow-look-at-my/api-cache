@@ -1,2 +1,64 @@
 Benchmark 1: C hello, MSVC /MD (shared CRT)
-Error: Failed to run command 'D:\a\api-cache\api-cache\out\c-dyn.exe': program not found
+  Time (mean ± σ):       6.0 ms ±   0.6 ms    [User: 1.7 ms, System: 1.9 ms]
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+  Range (min … max):     5.4 ms …   8.4 ms    300 runs
+ 
+Benchmark 2: C hello, MSVC /MT (static CRT)
+  Time (mean ± σ):       5.2 ms ±   0.3 ms    [User: 1.0 ms, System: 1.6 ms]
+ 
+  Range (min … max):     5.0 ms …   6.6 ms    300 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+Benchmark 3: C++ iostream, MSVC /MD (shared CRT)
+  Time (mean ± σ):       6.2 ms ±   0.3 ms    [User: 2.8 ms, System: 2.4 ms]
+  Range (min … max):     5.8 ms …   8.6 ms    300 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+ 
+Benchmark 4: C++ iostream, MSVC /MT (static CRT)
+  Time (mean ± σ):       5.2 ms ±   0.2 ms    [User: 1.4 ms, System: 2.0 ms]
+ 
+  Range (min … max):     5.0 ms …   6.5 ms    300 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+Benchmark 5: Go hello, CGO_ENABLED=0
+  Time (mean ± σ):       7.3 ms ±   0.3 ms    [User: 2.2 ms, System: 2.8 ms]
+ 
+  Range (min … max):     6.9 ms …   8.4 ms    300 runs
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+ 
+Benchmark 6: Go hello, CGO_ENABLED=1
+  Time (mean ± σ):       7.3 ms ±   0.4 ms    [User: 2.0 ms, System: 3.1 ms]
+  Range (min … max):     7.0 ms …   9.8 ms    300 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+ 
+Benchmark 7: Go hello, -ldflags=-s -w
+  Time (mean ± σ):       7.3 ms ±   0.3 ms    [User: 2.6 ms, System: 2.9 ms]
+ 
+  Range (min … max):     6.9 ms …   8.6 ms    300 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+Benchmark 8: Go + net/http + encoding/xml + text/template
+  Time (mean ± σ):       9.5 ms ±   0.5 ms    [User: 4.0 ms, System: 4.3 ms]
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+  Range (min … max):     9.0 ms …  12.8 ms    300 runs
+ 
+Benchmark 9: Rust hello
+  Time (mean ± σ):       5.7 ms ±   0.5 ms    [User: 1.8 ms, System: 2.6 ms]
+  Range (min … max):     5.3 ms …   9.5 ms    300 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+ 
+Summary
+  C++ iostream, MSVC /MT (static CRT) ran
+    1.00 ± 0.06 times faster than C hello, MSVC /MT (static CRT)
+    1.10 ± 0.10 times faster than Rust hello
+    1.14 ± 0.11 times faster than C hello, MSVC /MD (shared CRT)
+    1.18 ± 0.08 times faster than C++ iostream, MSVC /MD (shared CRT)
+    1.39 ± 0.07 times faster than Go hello, CGO_ENABLED=0
+    1.39 ± 0.08 times faster than Go hello, -ldflags=-s -w
+    1.40 ± 0.09 times faster than Go hello, CGO_ENABLED=1
+    1.82 ± 0.12 times faster than Go + net/http + encoding/xml + text/template
