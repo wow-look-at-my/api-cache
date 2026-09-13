@@ -125,7 +125,7 @@ Nothing in the family does any of the following. They are enumerated with their 
 | `wow-look-at-my/api-cli` | MIT (`/home/user/api-cli/LICENSE:1`) | the `fields/` sub-package is importable |
 | `wow-look-at-my/api-mirror` | MIT (`/home/user/api-mirror/LICENSE:1`) | `internal/mirror`, so **not importable** — pattern only |
 | `wow-look-at-my/api-cli-spec` | MIT (`/home/user/api-cli-spec/LICENSE:1`) | |
-| `wow-look-at-my/go-s3-server/cacheclient` | (repo root has no LICENSE file present in this checkout — confirm before depending) | own go.mod, minimal deps |
+| `wow-look-at-my/go-s3-server/cacheclient` | **no LICENSE file in this checkout** (neither at the repo root nor in `cacheclient/`; the four sibling repos all carry MIT) — confirm before depending on it | own go.mod, minimal deps |
 | `Masterminds/sprig/v3 v3.2.3` | MIT (`LICENSE.txt`, "Copyright (C) 2013-2020 Masterminds") | arrives transitively through api-dsl; 196 functions |
 | `spf13/cobra v1.10.2` | Apache-2.0 | api-cli only |
 | `spf13/pflag` | BSD-3-Clause | via cobra |

@@ -16,4 +16,4 @@ zip (deflate)              143193    -436578 -75.302%
 raw member bytes           579771
 --- PASS: TestContainerOverhead (0.01s)
 PASS
-ok  	apicache/probes	0.566s
+ok  	apicache/probes	0.564s

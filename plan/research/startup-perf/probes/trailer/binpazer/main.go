@@ -113,6 +113,7 @@ func main() {
 	rulesB := flag.Int("rules", 2862, "size of the rules block, bytes (default: the measured compiled-template size of github.xml)")
 	n := flag.Int("n", 300, "iterations")
 	exeHost := flag.String("host", "", "a binary to append the container to; empty means measure the container alone")
+	keep := flag.String("out", "", "keep the host+container file at this path, for the C probe to read")
 	flag.Parse()
 
 	strTable := make([]byte, *strKiB*1024)
@@ -211,10 +212,15 @@ func main() {
 		combined = append(combined, tail[:]...)
 
 		path := os.TempDir() + "/apcache-binpazer-host"
+		if *keep != "" {
+			path = *keep
+		}
 		if err := os.WriteFile(path, combined, 0o755); err != nil {
 			panic(err)
 		}
-		defer os.Remove(path)
+		if *keep == "" {
+			defer os.Remove(path)
+		}
 
 		fmt.Printf("\n## appended to `%s` (%d B host + %d B container)\n\n",
 			*exeHost, len(host), len(container))
