@@ -530,7 +530,7 @@ Two caveats the third runner added, and neither is fatal to the split:
 
 | | one container per result | one blob per output + manifest blob (CAS) |
 |---|---|---|
-| opens on a hit | 1 | 1 + N (measured: +3.3 µs each) |
+| opens on a hit | 1 | 1 + N (measured per extra open: **+6.3 µs** ubuntu, **+31.1 µs** windows, **+9.0 µs** macos) |
 | dedupe of identical `.d`/stderr across configs | none | automatic |
 | restore by hard link / reflink | impossible for an embedded member; needs ccache's `raw_file_entry` escape | natural — each blob is already a file |
 | partial fetch (object only, skip stderr) | needs an offset table | free |
@@ -539,11 +539,17 @@ Two caveats the third runner added, and neither is fatal to the split:
 | corruption blast radius | whole entry | one output |
 | remote transfer | one body | N bodies, or one batch call |
 
-The honest summary: the container is simpler and slightly faster on the hot
-path; the CAS split is better on space and on partial fetch, and it is the only
-one that makes hard-link/reflink restore natural. ccache ships **both** — a
-container, with a raw-file escape hatch that turns the big member back into a
-sibling file precisely when link-restore is wanted.
+The honest summary: the container is simpler and faster on the hot path — by
+1.7× on ext4, 2.0× on APFS and 2.7× on NTFS for a four-member entry; the CAS
+split is better on space and on partial fetch, and it is the only one that
+makes hard-link/clone restore natural. Those two facts are in direct tension,
+and the `clonefile` result above sharpens it: on APFS the link-style restore is
+**both safe and 34× faster than copying**, which is the strongest argument the
+CAS side has, and it is only available to a layout that stores the object as
+its own file. ccache ships **both** — a container, with a raw-file escape hatch
+that turns the big member back into a sibling file precisely when link-restore
+is wanted. That escape hatch now looks less like a wart and more like the
+correct shape.
 
 ## Atomicity and platform notes
 

@@ -25,6 +25,31 @@ rename but not the crash is a **miss**, not a wrong answer, provided the read
 path verifies a checksum. So the right rule is "cheap write, verified read",
 and the checksum has to be non-optional for that to hold.
 
+**Measured, that rule is worth far more off Linux than on it.** Adding an
+`fsync` before the rename of a 512 KiB entry costs **+7% on ext4, +356% on APFS
+and +966% on NTFS** (`local-layout.md`). Go's `File.Sync` issues `F_FULLFSYNC`
+on darwin, a real barrier to the device rather than a flush of the OS cache,
+which is the whole APFS gap. So "just fsync, it is cheap" is an ext4 belief. On
+two of three platforms the fsync is the single most expensive operation on the
+store path — more than the compression, the hashing and the lookup together —
+and the checksum that makes it unnecessary costs 23–67 µs.
+
+**POSIX rename semantics are also not universal.** `TestRenameOverOpenFile`
+and `TestUnlinkOpenFile` measure it rather than assume it:
+
+| | rename over an open file | unlink an open file |
+|---|---|---|
+| ext4 | succeeds; the handle reads the old bytes | succeeds; the handle keeps reading |
+| APFS | succeeds; the handle reads the old bytes | succeeds; the handle keeps reading |
+| **NTFS** | **fails**, "Access is denied" | **fails**, "used by another process" |
+
+On Windows a concurrent *reader* of the old entry blocks the store, because
+Go's `os.Open` does not request `FILE_SHARE_DELETE`. A store there must rename
+the old entry aside and delete it later, or retry; and **eviction has the same
+problem**, so an evictor must skip or retry an entry a reader holds and must
+not read that failure as corruption. This is the one place where the POSIX
+mental model produces a Windows bug rather than a Windows slowdown.
+
 **Remote.** Object stores differ. S3 has been strongly read-after-write
 consistent for new objects and overwrites since December 2020
 (<https://aws.amazon.com/s3/consistency/>); GCS has always been strongly
@@ -69,8 +94,8 @@ That third one is the valuable one and it is worth being clear about **why**:
 a differing PUT to an identical key means the key is not capturing something
 that matters — a compiler version, an environment variable, a `__DATE__`. As a
 production policy it costs a full re-read of the stored object on every
-duplicate PUT (measured: reading 512 KB is 20 µs from the page cache, so it is
-affordable). As a **diagnostic**, run with `notification=content_differs` and
+duplicate PUT (measured: reading 512 KB from the page cache is 26 µs on ext4,
+25 µs on APFS and **53 µs on NTFS**, so it is affordable everywhere). As a **diagnostic**, run with `notification=content_differs` and
 `action=allow`: nothing breaks, and every log line is a real bug in the key
 derivation. That is the single highest-value safety feature in this survey and
 it costs almost nothing.
@@ -104,12 +129,17 @@ do; zip does not. Checking before decompression means a corrupt entry is
 rejected without running a decoder over hostile bytes, and it is also the only
 order that lets a proxy verify an entry it cannot decode.
 
-**Cost.** CRC-32C runs at 24 GB/s (`probes/readcost_test.go`), so a checksum
-over a 528 KB entry is 21 µs; the measured end-to-end cost of turning
-per-block CRC on in binpazer was ~34% of pack time and ~5% of read time
+**Cost.** CRC-32C runs at 23 GB/s on x86 and **7.2 GB/s on an Apple M1**
+(`probes/readcost_test.go`), so a checksum over a 528 KB entry is 23 µs or
+67 µs depending on the machine; the measured end-to-end cost of turning
+per-block CRC on in binpazer was ~11% of pack time and free on read
 (`container-format.md`). SHA-256 over the same bytes is 1,421 µs on a CPU
-without SHA-NI — 68× more. There is no reason to use a cryptographic hash for
-integrity.
+without SHA-NI — 62× more. There is no reason to use a cryptographic hash for
+integrity. Two qualifications the three-platform run added: the margin is 14×
+on x86 but only 3.3× on arm64, where SHA-256 has a mandatory hardware
+instruction and CRC-32C's is narrower; and if the checksum ever shows up in an
+arm64 profile the answer is XXH3, a software construction with a NEON path,
+rather than a wider CRC instruction that does not exist.
 
 **The go-s3-server self-heal precedent** (`selfheal.go`) is worth studying
 because it is a real answer to a real production wedge rather than a
