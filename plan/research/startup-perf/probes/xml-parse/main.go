@@ -262,7 +262,7 @@ func cookedDecode(p []byte) []string {
 // ---------------------------------------------------------------- main
 
 func main() {
-	path := flag.String("f", "/home/user/api-cli/samples/github/github.xml", "XML config to load")
+	path := flag.String("f", "../fixtures/github.xml", "XML config to load")
 	n := flag.Int("n", 200, "iterations per stage")
 	flag.Parse()
 

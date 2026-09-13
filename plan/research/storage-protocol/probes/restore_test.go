@@ -1,3 +1,5 @@
+//go:build linux
+
 // Probe: what it costs to put the outputs back where the compiler would have
 // written them. A hit is only fast if the restore is fast.
 package probes

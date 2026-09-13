@@ -1,0 +1,1 @@
+go: github.com/wow-look-at-my/api-dsl@v0.0.0-20260823132545-703875e77856 requires go >= 1.25.0; switching to go1.26.8

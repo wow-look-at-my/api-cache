@@ -11,10 +11,12 @@
 //
 // The comparison is against the same members in a tar and in the hand-rolled
 // ACE1 framing from container_test.go.
-package probes
+package binpazerprobe
 
 import (
+	"archive/tar"
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +25,143 @@ import (
 
 	bp "github.com/wow-look-at-my/bin-file-fmt/go"
 )
+
+// --- corpus (shared shape with the parent probes module) ------------------
+
+type member struct {
+	Name string
+	Data []byte
+}
+
+func load(tb testing.TB, p string) []byte {
+	tb.Helper()
+	b, err := os.ReadFile(p)
+	if err != nil {
+		tb.Skipf("missing %s: run ../gen-testdata.sh", p)
+	}
+	return b
+}
+
+func entrySet(tb testing.TB) []member {
+	tb.Helper()
+	obj := load(tb, "../testdata/mid.o")
+	dep := load(tb, "../testdata/mid.d")
+	stderr := bytes.Repeat([]byte("mid.cc:41:9: warning: unused variable 'x' [-Wunused-variable]\n"), 30)
+	gcno := obj[:40<<10]
+	return []member{
+		{"object", obj},
+		{"dependency", dep},
+		{"stderr", stderr},
+		{"coverage", gcno},
+	}
+}
+
+// --- the two baselines, duplicated here so one CI run compares all three ---
+
+const aceHeaderLen = 8
+const aceEntryLen = 14
+
+func acePack(ms []member) []byte {
+	var buf bytes.Buffer
+	buf.WriteString("ACE1")
+	buf.WriteByte(1)
+	buf.WriteByte(0)
+	var n [2]byte
+	binary.LittleEndian.PutUint16(n[:], uint16(len(ms)))
+	buf.Write(n[:])
+	off := uint64(aceHeaderLen + aceEntryLen*len(ms))
+	tbl := make([]byte, 0, aceEntryLen*len(ms))
+	for i, m := range ms {
+		var e [aceEntryLen]byte
+		e[0] = byte(i)
+		binary.LittleEndian.PutUint32(e[2:6], uint32(len(m.Data)))
+		binary.LittleEndian.PutUint64(e[6:14], off)
+		off += uint64(len(m.Data))
+		tbl = append(tbl, e[:]...)
+	}
+	buf.Write(tbl)
+	for _, m := range ms {
+		buf.Write(m.Data)
+	}
+	var trailer [8]byte
+	buf.Write(trailer[:])
+	return buf.Bytes()
+}
+
+func aceReadOneFromFile(f io.ReaderAt, idx int) ([]byte, error) {
+	hdr := make([]byte, aceHeaderLen+aceEntryLen*8)
+	if _, err := f.ReadAt(hdr, 0); err != nil && err != io.EOF {
+		return nil, err
+	}
+	e := hdr[aceHeaderLen+aceEntryLen*idx:]
+	l := binary.LittleEndian.Uint32(e[2:6])
+	o := binary.LittleEndian.Uint64(e[6:14])
+	out := make([]byte, l)
+	if _, err := f.ReadAt(out, int64(o)); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func tarPack(ms []member) []byte {
+	var buf bytes.Buffer
+	w := tar.NewWriter(&buf)
+	for _, m := range ms {
+		w.WriteHeader(&tar.Header{Name: m.Name, Size: int64(len(m.Data)), Mode: 0o644, Format: tar.FormatUSTAR})
+		w.Write(m.Data)
+	}
+	w.Close()
+	return buf.Bytes()
+}
+
+func tarReadOne(b []byte, name string) []byte {
+	r := tar.NewReader(bytes.NewReader(b))
+	for {
+		h, err := r.Next()
+		if err != nil {
+			return nil
+		}
+		if h.Name == name {
+			d := make([]byte, h.Size)
+			io.ReadFull(r, d)
+			return d
+		}
+	}
+}
+
+// BenchmarkBaselineReadOne is tar and ACE1 on the same inputs in the same run,
+// so the binpazer numbers below have a same-machine comparison.
+func BenchmarkBaselineReadOne(b *testing.B) {
+	ms := entrySet(b)
+	rev := []member{ms[1], ms[2], ms[3], ms[0]}
+	n := int64(len(ms[0].Data))
+
+	tarBlob := tarPack(rev)
+	b.Run("tar/scan", func(b *testing.B) {
+		b.SetBytes(n)
+		b.ReportAllocs()
+		for b.Loop() {
+			if tarReadOne(tarBlob, "object") == nil {
+				b.Fatal("not found")
+			}
+		}
+	})
+
+	aceBlob := acePack(rev)
+	p := b.TempDir() + "/entry.ace"
+	os.WriteFile(p, aceBlob, 0o644)
+	f, _ := os.Open(p)
+	defer f.Close()
+	b.Run("framed/pread", func(b *testing.B) {
+		b.SetBytes(n)
+		b.ReportAllocs()
+		for b.Loop() {
+			if _, err := aceReadOneFromFile(f, 3); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
 
 // Block type ids. User types ascend from 1.
 const (

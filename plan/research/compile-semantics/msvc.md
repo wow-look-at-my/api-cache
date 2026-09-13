@@ -276,3 +276,85 @@ MSVC response files differ from gcc's in two ways that matter:
 | `cl @rsp.txt` with UTF-16 `rsp.txt` | Decode BOM, expand **one** level, then classify. |
 | `clang-cl /c -showIncludes /Fofoo.obj foo.cpp` | Cacheable; synthesise the `.d` from showIncludes; do not attempt `/sourceDependencies`. |
 | any of the above with `CL=/Zi` in the environment | ccache: bypass (`unsupported_environment_variable`). |
+
+---
+
+## 14. The rule table for `cl.exe` / `clang-cl`
+
+Same caveat as the gcc table: this records *what each flag family means to a cache*. It is
+not a proposal for the rule surface. Column vocabulary is shared with
+`c-cxx-gcc-clang.md` §10.1–10.2, plus the MSVC-specific value forms below.
+
+### 14.1 MSVC value forms (engine-owned)
+
+| `value` | Shape | Example |
+|---|---|---|
+| `flag` | bare | `/c`, `/nologo`, `/Z7` |
+| `concat` | glued | `/Fofoo.obj`, `/DFOO=1`, `/Ycstdafx.h` |
+| `concat-colon` | glued, with an optional `:` after the flag letters | `/Fo:foo.obj` |
+| `sep` | next argv element | `/external:I inc` |
+| `either` | both | `/sourceDependencies deps.json` or `/sourceDependenciesdeps.json` |
+| `suffix` | the tail is a sub-option | `/external:W3`, `/openmp:llvm`, `/std:c++20` |
+
+Leader: **`/` and `-` are interchangeable everywhere.** The engine matches either.
+
+`--` before the source disambiguates a filename starting with `/` or `-`.
+
+`@file` response files: **one level only** (Microsoft: "It is not possible to specify the
+@ option from within a response file"), may be **UTF-16 with a BOM**, relative paths legal.
+
+### 14.2 The table
+
+| pattern | value | role | notes |
+|---|---|---|---|
+| `*.c *.cpp *.cc *.cxx` | `positional` | `source-input` | Must be exactly one. |
+| `/Tc<f>` `/Tp<f>` | `concat` | `source-input` + `mode:language` | ccache: `bypass:unsupported_compiler_option`. sccache parses them. |
+| `/TC` `/TP` | `flag` | `mode:language` (all C / all C++) | |
+| `/c` | `flag` | `mode:compiling` | Absent → `bypass:called_for_link`. |
+| `/Fo<p>` | `concat-colon` | `primary-output` | A trailing `\` or an existing directory → derive the name from the source basename. |
+| `/Fd<p>` | `concat-colon` | `path-write-untracked` | The PDB. Passed through, **never hashed**. sccache appends `.pdb` when the value has no extension. |
+| `/Fp<p>` | `concat-colon` | `path-read` (with `/Yu`) / `primary-output` (with `/Yc`) | sccache refuses it outright. |
+| `/Fe<p>` `/Fa<p>` `/Fi<p>` `/Fr<p>` `/FR<p>` `/Ft<p>` `/Fx` `/FA<x>` | `concat` | `bypass:unsupported_compiler_option` | Executable, listing, preprocessed, browse-info and `#import` outputs. |
+| `/Z7` | `flag` | `mode:debug-info` | **Cacheable** — debug info lives inside the `.obj`. |
+| `/Zi` `/ZI` | `flag` | `bypass:unsupported_compiler_option` | Shared PDB; an accumulator, not a function of one compile. Remedy is `/Z7` via the build system. |
+| `/FS` | `flag` | `ignore` | Synchronous PDB writes. Irrelevant under `/Z7`. |
+| `/MP[n]` | `suffix` | `ignore` | With >1 source it is already a multiple-source bypass. |
+| `/Gm` | `flag` | `bypass:unsupported_compiler_option` | Minimal rebuild. |
+| `/showIncludes` `/showIncludes:user` | `flag`/`suffix` | `mode:include-report` | Engine-owned: detect the localized prefix at runtime (§4), strip the lines from cached stdout, regenerate them **with nesting depth** on a hit. |
+| `/sourceDependencies <p>` | `either` | `dep-output` (JSON) | Real `cl.exe` only. Preferred over `/showIncludes`. |
+| `/I<d>` | `concat-colon`/`sep` | `dir-read` + `cpp-only` | |
+| `/external:I <d>` | `sep`/`concat` | `dir-read` + `cpp-only` | Only parsed once `/experimental:external` has been seen on older toolsets. |
+| `/external:W<n>` `/external:anglebrackets` `/external:env:<v>` | `suffix` | `hash-verbatim` | |
+| `/AI<d>` | `concat` | `dir-read` | `#using` assembly search path. |
+| `/D<m>` `/U<m>` `/u` | `concat` | `cpp-only` | `/u` (undefine all) is MSVC-specific and unrelated to gcc's `-u`. |
+| `/FI<f>` | `concat`/`sep` | `path-read` + `cpp-only` + **`resolve-relative-to-source-dir`** | The only flag whose relative path is resolved against the **source file's** directory, not the cwd. Needs a second pass after the source is known. |
+| `/FU<f>` | `concat`/`sep` | `bypass:unsupported_compiler_option` | Forced `#using` (managed). |
+| `/Yc[<h>]` | `concat-colon` | `mode:pch-create` + `primary-output` (the `.pch`) | Path resolution order: `/Fp` → `<h>` with `.pch` → source basename + `.pch`. sccache refuses. |
+| `/Yu[<h>]` | `concat-colon` | `mode:pch-use` + **`path-read` on the resolved `.pch`** | The `.pch` **content** must be in the key, or `/Z7` objects built against different PCHs mix and the linker emits `LNK4206`. Memoise the hash by `path:size:mtime`; a `.pch` is routinely 100–400 MB. |
+| `/YI<h>` `/YI-` | `concat`/`flag` | `hash-verbatim` | No effect without `/Yc`. |
+| `/Y-` | `flag` | `hash-verbatim` | Disables PCH. |
+| `/Zs` | `flag` | `mode:compiling` + `no-primary-output` | MSVC's `-fsyntax-only`. |
+| `/E` `/EP` `/P` | `flag` | `bypass:called_for_preprocessing` | |
+| `/link …` | `flag` | `bypass:called_for_link` | Everything after it is linker argv. |
+| `/nologo` | `flag` | `hash-verbatim` | Changes stdout, which is cached. |
+| `/utf-8` | `flag` | `hash-verbatim` | The engine **adds** it to its own preprocessing run and then checks the run's stderr for `warning C4828: The file contains a character starting at offset` → `bypass:unsupported_source_encoding`. |
+| `/WX` `/WX-` `/W<n>` `/w` | `flag`/`suffix` | `hash-verbatim` + `comp-only` | Engine adds `/WX-` to its own preprocessing run: the Windows SDK emits C4668 while preprocessing that does not appear in a real compile (sccache #1725, #2250). |
+| `/FC` | `flag` | `hash-verbatim` + `force-hash-cwd` | Full paths in diagnostic messages. Implied by `/ZI`. |
+| `/experimental:module` `/interface` `/internalPartition` `/ifcOnly` | `flag` | `bypass:unsupported_compiler_option` | C++20 modules. |
+| `/ifcOutput <p>` `/ifcSearchDir <p>` `/ifcMap <p>` `/stdIfcDir <p>` `/reference <n>=<p>` | `sep` | `bypass:unsupported_compiler_option` | Would need `path-read` on each BMI to be correct. |
+| `/doc<p>` | `concat` | `bypass:unsupported_compiler_option` | Writes an `.xdc`. |
+| `/experimental:log <p>` | `concat` | `bypass:unsupported_compiler_option` | SARIF logging. |
+| `/dynamicdeopt*` | `flag`/`sep` | `bypass:unsupported_compiler_option` | |
+| `/O<x>` `/GL` `/GS` `/Gy` `/EH<x>` `/MD` `/MT` `/MDd` `/MTd` `/std:<v>` `/arch:<x>` `/openmp[:<x>]` `/permissive-` … | `flag`/`suffix` | `hash-verbatim` | The ordinary codegen/language flags. |
+| `@<file>` | — | *expand **one** level (BOM-aware), then re-dispatch* | |
+| unknown `/x` or `-x` | — | `hash-verbatim` | Same separate-argument hazard as gcc. |
+
+### 14.3 Environment (see §8 for detail)
+
+| variable | role |
+|---|---|
+| `INCLUDE`, `EXTERNAL_INCLUDE` | `hash-value` in the direct-mode key |
+| `CL`, `_CL_` | `bypass:unsupported_environment_variable` (ccache) or `hash-value` (buildcache) — prefer the bypass |
+| `VCToolsVersion`, `VCToolsInstallDir` | `hash-value` (they set the triple baked into a PCH) |
+| `VS_UNICODE_OUTPUT` | **`unset-around-child`** — otherwise the wrapper captures no output at all |
+| `LIB` | `ignore` (link-time only) |
