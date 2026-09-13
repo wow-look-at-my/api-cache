@@ -50,16 +50,15 @@ mkdir -p "$R/hyperfine"
 	-n "Go + sprig TxtFuncMap() built"       "$B/go-sprig"
 
 # ---- 3. does a trailer on the binary slow exec?
-"$HF" -N --warmup 20 --runs "$RUNS" \
-	--export-markdown "$R/hyperfine/trailer-exec.md" \
-	--export-json     "$R/hyperfine/trailer-exec.json" \
-	-n "Go + 3 KiB trailer (not read)"  "$B/trailer-0"   -n "x" --  quiet 2>/dev/null || \
+# The targets run in "quiet" mode: they exit without reading the trailer, so
+# what is measured is purely whether a bigger FILE costs more to execve.
 "$HF" -N --warmup 20 --runs "$RUNS" \
 	--export-markdown "$R/hyperfine/trailer-exec.md" \
 	--export-json     "$R/hyperfine/trailer-exec.json" \
 	-n "Go + 3 KiB trailer (not read)"   "$B/trailer-0 quiet" \
 	-n "Go + 1 MiB trailer (not read)"   "$B/trailer-1m quiet" \
-	-n "Go + 10 MiB trailer (not read)"  "$B/trailer-10m quiet"
+	-n "Go + 10 MiB trailer (not read)"  "$B/trailer-10m quiet" \
+	-n "Go hello (no trailer at all)"    "$B/go-hello"
 
 # ---- 4. the daemon round trip, as a whole process
 if [ -S /tmp/apcache-bench.sock ]; then

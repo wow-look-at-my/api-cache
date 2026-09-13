@@ -645,3 +645,142 @@ expanded args are hashed) or its *path* (it must not be).
 | `gcc -c -Wp,-MD,a.d -MF b.d foo.c -o foo.o` | `unsupported_compiler_option` (gcc/clang disagree on which file wins). |
 | `g++ -c -include pch.h foo.cc -o foo.o` with `pch.h.gch` present | Needs `time_macros` sloppiness, else `could_not_use_precompiled_header`. |
 | `gcc @resp.rsp foo.c` | Expand `resp.rsp` (recursively) first, then classify the expanded argv. |
+
+---
+
+## 10. The rule table for gcc/clang
+
+This is the artifact the planner should start the gcc rule file from. It is a **table of
+meanings**, not a set of hand-written parse functions: every "how do I get the value out of
+this flag" question is answered by the `value` column, which names an **engine-owned
+parser**, and every "what does it mean" question is answered by the `role` column.
+
+### 10.1 The `value` vocabulary (engine-owned GNU argument syntax)
+
+| `value` | Shape | Example |
+|---|---|---|
+| `none` | a bare flag | `-c`, `-O2`, `-fPIC` |
+| `sep` | value is the next argv element | `-o foo.o`, `-MF dep.d` |
+| `concat` | value is glued to the flag | `-DFOO=1`, `-Ifoo` |
+| `either` | both spellings accepted | `-I` (gcc accepts `-Ifoo` and `-I foo`) |
+| `eq` | `--flag=value` | `-fdebug-prefix-map=a=b`, `--sysroot=/x` |
+| `eq-or-sep` | `--flag=v` or `--flag v` | `--param x=1` |
+| `comma-list` | value is a comma-separated list after the prefix | `-Wp,-MD,file`, `-Wl,-x,-y` |
+| `prefix-rest` | the whole tail is the value; matched by prefix | `-fprofile-use=…`, `-std=…` |
+| `positional` | not a flag; classified by extension / `-x` state | `foo.c` |
+
+Two syntaxes the engine must own outright, because no table entry can express them:
+
+- **`@file` response files** — expanded **recursively** before the table is consulted,
+  with shell-like quoting; an unopenable file is left verbatim as `@name` (gcc's own
+  behaviour). The *path* is never hashed; the expanded arguments are.
+- **`-Wp,<a>,<b>` / `-Xpreprocessor <a>` / `-Xassembler` / `-Xlinker` / `-Xclang <a>`
+  forwarding** — the engine splits the payload and re-runs the table over it, so that
+  `-Wp,-MD,x.d` is classified as a dep-output and `-Xclang -ast-dump` as a bypass, without
+  either needing a bespoke entry.
+
+### 10.2 The `role` vocabulary
+
+| `role` | Meaning for the engine |
+|---|---|
+| `source-input` | The compiled file. Exactly one; content + path both hashed. |
+| `primary-output` | Where the main artifact goes. Captured and restored; the *path* is never hashed. |
+| `dep-output` | Where a Makefile-format dep file goes. Captured, **and** rewritten on hit/miss (§8). |
+| `dep-target` | The text to use as the dep file's target (`-MT`/`-MQ`). Drives the on-hit rewrite. |
+| `derived-output:<ext>` | The engine computes `<primary-output> with extension <ext>` and captures it too. |
+| `path-read` | The value is a file whose **content** is a hash input. |
+| `dir-read` | The value is a search directory. Affects *discovery*, not content: hashed in direct mode, dropped in preprocessor mode, subject to prefix mapping. |
+| `path-write-untracked` | A path the tool writes that is **not** cached (MSVC `/Fd`). Passed through, never hashed. |
+| `hash-verbatim` | The argument text goes into the key unchanged. The default for anything not otherwise classified. |
+| `hash-expanded` | The engine asks the tool what it expanded to and hashes *that* (`-march=native`). |
+| `hash-normalized-path` | The argument is a path: apply prefix mapping / base-dir relativisation, then hash the result. |
+| `ignore` | Passed to the tool, absent from the key. |
+| `cpp-only` | Affects preprocessing only → excluded from the preprocessor-mode key, included in the direct-mode key. |
+| `comp-only` | Affects compilation only → **not passed** to the preprocessor run. |
+| `bypass:<reason>` | Decline, logging one of the closed reason codes. |
+| `mode:<name>` | Sets an engine mode flag the verdict logic reads (`compiling`, `linking`, `generating-deps`, `debug-info`, `coverage`, `pch-create`, `pch-use`, `lto`, …). |
+
+A cell may carry more than one role (`cpp-only + dir-read`), and any row may be
+`gated:<sloppiness>`.
+
+### 10.3 The table
+
+| pattern | value | role | notes |
+|---|---|---|---|
+| `*.c *.cc *.cpp *.cxx *.C *.m *.mm *.s *.S *.i *.ii` | `positional` | `source-input` | Extension → language; `-x` overrides. More than one → `bypass:multiple_source_files` when compiling, `bypass:called_for_link` when linking. |
+| `-o` | `either` | `primary-output` | `-o -` → `bypass:output_to_stdout`. `/dev/null` suppresses derived outputs. Absent → derive from source basename + mode extension. |
+| `-c` `--compile` | `none` | `mode:compiling` | |
+| `-S` | `none` | `mode:compiling` | Output extension becomes `.s`. **Not** a bypass. |
+| `-E` `-EP` | `none` | `bypass:called_for_preprocessing` | |
+| `-fsyntax-only` `-Zs` | `none` | `mode:compiling` + `no-primary-output` | Exit code + stderr are the whole result. |
+| `-analyze` | `none` | `bypass:unsupported_compiler_option` | ccache: TOO_HARD. (Its output extension `.plist` is handled only because `-analyze` also sets `found_analyze_opt`.) |
+| `-M` `-MM` | `none` | `bypass:called_for_preprocessing` | Writes deps to stdout, no object. |
+| `-MD` `-MMD` | `none` | `mode:generating-deps` + `comp-only` | Dep path defaults to `<-o path>` with `.d`, else `<source>.d` in cwd (**measured**). |
+| `-MF` | `either` | `dep-output` | Overrides the default. `/dev/null` → drop dep generation. |
+| `-MT` | `sep` | `dep-target` (raw) | |
+| `-MQ` | `sep` | `dep-target` (make-quoted) | buildcache throws on this; do not. |
+| `-MP` | `none` | `hash-verbatim` | Adds phony targets; affects the dep file's bytes, so it is in the key. |
+| `-MG` `-MD -MP` combos | `none` | `hash-verbatim` | |
+| `-MJ` | `either` | `bypass:unsupported_compiler_option` | Appends to a shared compilation DB. |
+| `-Wp,…` | `comma-list` | *re-dispatch* | `-Wp,-MD,f` = `-MD` + dep-output `f`. **`-Wp,-M[M]D` together with `-MF` → `bypass:unsupported_compiler_option`**: gcc honours the `-Wp` path, clang the `-MF` path. |
+| `-Xpreprocessor` | `sep` | *re-dispatch*, `cpp-only` | |
+| `-Xassembler` `-Xlinker` | `either` | `hash-verbatim`, `comp-only` | |
+| `-Xclang` | `sep` | *re-dispatch* | The payload may itself be TOO_HARD (`-ast-dump`). |
+| `-I` `-iquote` `-isystem` `-idirafter` `-iprefix` `-iwithprefix` `-iwithprefixbefore` `-imultilib` `-iframework` `-imsvc` | `either` | `dir-read` + `cpp-only` | Order matters for *discovery*, which the include manifest records; it does not enter the preprocessor-mode key. |
+| `-isysroot` `--sysroot=` `--gcc-toolchain=` `-gcc-toolchain` `-B` | `either`/`eq` | `dir-read` | Not `cpp-only` for `-B` (it changes which `as`/`ld` run). |
+| `-nostdinc` `-nostdinc++` `-stdlib=` `-trigraphs` `-remap` `-fworking-directory` `-fno-working-directory` | `none`/`eq` | `cpp-only` | |
+| `-D` `-U` | `either` | `cpp-only` | Present in the direct-mode key, absent from the cpp-mode key. |
+| `-include` `-imacros` `-include-pch` `-include-pth` `--include` | `either` | `path-read` + `cpp-only` | |
+| `-x` | `sep` | `mode:language` | Unknown language → `bypass:unsupported_source_language`. `-x none` clears. Must be re-passed to the compiler when feeding it preprocessed text. |
+| `-finput-charset=` | `eq` | `hash-verbatim`, `comp-only` | Must be re-passed with preprocessed input, or conversion happens twice. |
+| `-g -ggdb -gdwarf-N -gstabs …` | `none` | `mode:debug-info` | `-g0`/`-ggdb0` clears it. `-gz[=t]` is neutral. Sets whether cwd enters the key. |
+| `-gsplit-dwarf` | `none` | `derived-output:.dwo` | Suppressed when the object is `/dev/null` (**ccache**). Object path enters the key because the `.o` links to the `.dwo` by name. |
+| `--coverage` `-coverage` `-ftest-coverage` `-fprofile-arcs` | `none` | `mode:coverage` + `derived-output:.gcno` | **Measured**: `gcc --coverage -c x.c -o cov.o` → `cov.o` + `cov.gcno`. |
+| `-fprofile-instr-generate` | `none`/`eq` | `mode:coverage` (clang) | |
+| `-fstack-usage` | `none` | `derived-output:.su` | |
+| `-fcallgraph-info*` | `prefix-rest` | `derived-output:.ci` | |
+| `--serialize-diagnostics` | `sep` | `primary-output` (secondary) | `TAKES_PATH`. |
+| `-fprofile-use[=p]` `-fprofile-instr-use[=p]` `-fprofile-sample-use[=p]` `-fauto-profile[=p]` `-fbranch-probabilities` | `prefix-rest` | `path-read` + `hash-normalized-path` | The profile data is a real input. More than one → `bypass:unsupported_compiler_option`. The bare forms imply `.` / the object's basename — a path the engine cannot resolve, so treat bare-form as `bypass` unless the rule states a resolution. |
+| `-fprofile-generate[=p]` `-fprofile-instr-generate=p` `-fprofile-dir=p` | `prefix-rest` | `hash-normalized-path` | The path is baked into the instrumented object. gcc defaults to `$PWD`, clang to `.`. |
+| `-fprofile-abs-path` | `none` | `hash-verbatim` + `force-hash-cwd` | `gated:gcno_cwd` to skip the cwd hash. |
+| `-fprofile-prefix-path=` | `eq` | `hash-normalized-path` | |
+| `-fprofile-correction -fprofile-values -fprofile-update* …` | `none`/`prefix-rest` | `hash-verbatim` | Inert for caching. |
+| `-fsanitize-ignorelist=` `-fsanitize-blacklist=` | `eq` | `path-read` + `hash-normalized-path` | |
+| `-fplugin=<path>` | `eq` | **`path-read`** (ccache only hashes the string — close this hole) | `-fplugin=libcc1plugin` → `bypass:unsupported_compiler_option`. |
+| `-specs=<file>` `-specs <file>` | `either` | **`path-read`** (ccache only hashes the string — close this hole) | |
+| `--config <file>` (clang) | `sep` | **`path-read`** | Same hole. |
+| `-fmodules` | `none` | `bypass:could_not_use_modules` unless depend+direct mode, then `gated:modules` | |
+| `-fmodule-file=[n=]<path>` | `eq` | `path-read` | The BMI's content is the input. |
+| `-fmodule-map-file=` `-fmodules-cache-path=` | `eq` | `hash-normalized-path` | |
+| `-fmodule-header` `-fmodules-ts` | `none` | `bypass:could_not_use_modules` | |
+| `-fpch-preprocess` | `none` | `mode:pch-use` | Engine **adds** it to the compiler args when a PCH is in play, so the `#pragma GCC pch_preprocess "x.gch"` marker reaches the preprocessed text (**measured**). |
+| output ends `.gch`/`.pch`, or `-x *-header` | — | `mode:pch-create` | `gated:pch_defines,time_macros`, else `bypass:could_not_use_precompiled_header`. |
+| `-fno-pch-timestamp` | `none` | `hash-verbatim` + relax the clang PCH mtime check | |
+| `-march=native` `-mcpu=native` `-mtune=native` | `none` | `hash-expanded` | Engine runs `<cc> -### -E - <flag>`, takes the `/cc1 -E` (gcc) or `"-cc1"` (clang) line; for clang, keep only arch-related options (drop `-fdebug-compilation-dir`, `-fcoverage-compilation-dir`). **Measured**. |
+| `-frecord-gcc-switches` | `none` | `hash-full-argv` | The switches land in `.GCC.command.line`. |
+| `-frandom-seed=` | `eq` | `hash-verbatim`, `gated:random_seed` to ignore | |
+| `-flto[=n]` / `-fno-lto` | `none`/`eq` | `mode:lto` + `hash-verbatim` | Still cacheable. The object is bitcode and is **not** byte-reproducible run to run (**measured**). |
+| `-fdebug-prefix-map=a=b` `-ffile-prefix-map=` `-fmacro-prefix-map=` `-fcoverage-prefix-map=` | `eq` | `prefix-map` | Engine-owned: applies to the cwd before hashing it, and to paths under `hash-normalized-path`. Order matters — **applied in reverse argv order** (ccache reverses the list). |
+| `-fdebug-compilation-dir=` `-fcoverage-compilation-dir=` (clang) | `eq` | `set-compilation-dir` | Replaces the cwd in the key outright. |
+| `-fdiagnostics-color[=auto\|always\|never]` `-fcolor-diagnostics` `-fno-…` | `none`/`eq` | `diagnostics-color` | Engine-owned: **force colour on** for the child, cache the coloured stderr, strip on replay when the user's stderr is not a TTY. |
+| `-Werror` `-Wno-error` `-Werror=*` | `none`/`eq` | `hash-verbatim` + `comp-only` | Withheld from the preprocessor run so a `#warning` does not fail it. |
+| `-save-temps[=cwd\|obj]` `--save-temps*` | `none`/`eq` | `bypass:unsupported_compiler_option` | Writes unknown siblings. |
+| `-ftime-trace` | `none` | `bypass:unsupported_compiler_option` | Output contains wall-clock durations. |
+| `-gen-cdb-fragment-path` | `sep` | `bypass:unsupported_compiler_option` | |
+| `-frepo` `-gtoggle` `-wrapper` `-ast-view` `-ast-merge` `--analyzer-output` | — | `bypass:unsupported_compiler_option` | |
+| `-ivfsoverlay` `-ivfsstatcache` | `sep` | `path-read`, `gated:ivfsoverlay` | |
+| `-fbuild-session-file=` | `eq` | `hash-normalized-path` | |
+| `-L` `-l` `-Wl,…` `-shared` `-pie` `-rdynamic` `-bundle` `-all_load` `-install_name` | various | `comp-only` + `hash-verbatim` | Meaningful only when linking, which is already a bypass; hashed so they cannot silently differ. |
+| `@<file>` | — | *expand recursively, then re-dispatch* | Never hashed as a path. |
+| anything else starting `-` | `none` | `hash-verbatim` | **Note the risk**: an unknown flag that takes a *separate* argument will have its value mis-read as a source file. buildcache's rust wrapper refuses unknown flags for exactly this reason; a C rule should at minimum log it. |
+
+### 10.4 Engine primitives this table assumes exist
+
+`gnu-argv-parse` (the `value` column) · `response-file-expand` (recursive, quoted) ·
+`comma-forward-split` (`-Wp,`/`-Xclang`) · `derive-sibling-path(ext)` ·
+`depfile-parse` / `depfile-escape` / `depfile-rewrite-target` /
+`depfile-relativise-prerequisites` · `linemarker-scan` (build the include set from `-E`
+output) · `include-report-scan` (`-H` stderr: dots = depth) · `prefix-map-apply`
+(reverse-ordered) · `base-dir-relativise` · `tool-expansion-query` (`-### -E -`) ·
+`diagnostics-color-force-and-strip` · `temporal-macro-scan` (`__DATE__`/`__TIME__`/
+`__TIMESTAMP__`/`#embed`/`.incbin`, word-boundary aware) · `source-too-new-check`.
