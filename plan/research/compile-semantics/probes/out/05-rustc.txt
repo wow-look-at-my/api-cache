@@ -1,0 +1,47 @@
+===== rustc -vV (compiler identity) =====
+rustc 1.94.1 (e408947bf 2026-03-25)
+binary: rustc
+commit-hash: e408947bfd200af42db322daf0fadfe7e26d3bd1
+commit-date: 2026-03-25
+host: x86_64-unknown-linux-gnu
+release: 1.94.1
+LLVM version: 21.1.8
+===== rustc --print=sysroot =====
+/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu
+===== --emit=dep-info output format =====
+/tmp/tmp.v7sVTh15ws/demo.d: lib.rs helper.rs inc.txt
+
+lib.rs:
+helper.rs:
+inc.txt:
+
+# env-dep:PATH_LIKE_VAR=hello
+===== --emit=link,metadata,dep-info with -C extra-filename =====
+error: error writing dependencies to `/tmp/tmp.v7sVTh15ws/full/demo-abc123.d`: No such file or directory (os error 2)
+
+error: aborting due to 1 previous error
+
+ls: cannot access '/tmp/tmp.v7sVTh15ws/full': No such file or directory
+===== rustc --print file-names (how buildcache learns output names) =====
+libdemo-abc123.rlib
+===== dep-info when an env! is used: env-dep lines =====
+7:# env-dep:PATH_LIKE_VAR=hello
+===== unset env var case =====
+error: unset-default
+ --> lib.rs:2:21
+  |
+/tmp/tmp.v7sVTh15ws/demo2.d: lib.rs helper.rs inc.txt
+
+lib.rs:
+helper.rs:
+inc.txt:
+
+# env-dep:PATH_LIKE_VAR
+===== -C incremental artifacts =====
+demo-0sji8hr6wgu8x
+===== dep-info escaping of a space in a path =====
+/tmp/tmp.v7sVTh15ws/sp.d: /tmp/tmp.v7sVTh15ws/sp\ ace/lib.rs /tmp/tmp.v7sVTh15ws/sp\ ace/helper.rs /tmp/tmp.v7sVTh15ws/sp\ ace/inc.txt
+
+/tmp/tmp.v7sVTh15ws/sp\ ace/lib.rs:
+/tmp/tmp.v7sVTh15ws/sp\ ace/helper.rs:
+/tmp/tmp.v7sVTh15ws/sp\ ace/inc.txt:
