@@ -133,9 +133,72 @@ The same cmd-file treatment was applied to the two probes that call
 deliberate real-pipe colour test (which keeps its `cl | findstr` pipe, because
 that pipe IS the measurement, but no longer hands PowerShell one).
 
-## Left to do
+## Run 3: completed, but two families contaminated
 
-- [ ] re-run (run 3) and confirm all 11 families complete
+<https://github.com/wow-look-at-my/api-cache/actions/runs/34731245969> -- green,
+all 11 families, no `FAILURES.txt`. The vctip hang was gone.
+
+But the tail of p08 and **every probe in p09** came back 0 bytes on both
+streams while still returning truthful exit codes. p08's own
+`error-path-baseline`, which sets no environment at all, was empty too, so it
+was contamination rather than an MSVC behaviour.
+
+## Run 4: made it worse, and thereby found the cause
+
+<https://github.com/wow-look-at-my/api-cache/actions/runs/34731482002> -- green,
+and **every family** captured nothing.
+
+The run-4 change was a guard that cleared `VS_UNICODE_OUTPUT` before each probe
+with `[Environment]::SetEnvironmentVariable($name, $null)`. That made the
+problem universal instead of fixing it, which identified it:
+
+**PowerShell's `SetEnvironmentVariable($name, $null)` does not remove a variable
+on Windows -- it leaves it PRESENT with an empty value, and `cl.exe` tests
+`VS_UNICODE_OUTPUT` for PRESENCE, not for value.** Under it cl sends everything
+to an IDE pipe and writes nothing to stdout or stderr.
+
+That explains both runs. In run 3, p08 deliberately set `VS_UNICODE_OUTPUT=1`
+and the harness then "restored" it to `$null`, leaving it set-but-empty, which
+silenced the rest of p08 and all of p09. p10 was unaffected only because
+clang-cl ignores the variable. In run 4 the new guard did the same thing to
+every probe.
+
+Fix: `Set-ProbeEnv`, which uses `Remove-Item Env:\<name>` when the value is null
+or empty, and `Set-Item` otherwise. It is used for the set, for the restore and
+for the per-probe clear.
+
+This is a finding about the product too, not only about the harness:
+`msvc.md` says `VS_UNICODE_OUTPUT` "must be unset around every child run", and
+the measurement shows that *unset* has to mean **deleted** -- setting it to the
+empty string does not disable it. It is written up in `corrections.md` item 11.
+
+## Run 5: AUTHORITATIVE
+
+<https://github.com/wow-look-at-my/api-cache/actions/runs/34731635556> -- green,
+all 11 families, no `FAILURES.txt`, no probe timed out.
+
+p09 captures normally again; `VS_UNICODE_OUTPUT-set-1` is 0 bytes (the real
+finding) while `error-path-baseline` beside it is 69 bytes (the control). This
+is the run `results/*.md` and `README.md` are taken from.
+
+## Done
+
+- [x] fix the parse error (run 2 ran the probes for real)
+- [x] fix the vctip hang (run 3 completed)
+- [x] fix the `VS_UNICODE_OUTPUT` contamination (run 5 clean)
+- [x] `results/*.md`, one per family, verbatim captures, run URL and image
+- [x] `README.md` -- index, 20-line summary, contradictions table
+- [x] `corrections.md` -- 13 numbered edits for `msvc.md`
+
+## Known limits of this data
+
+- Only the `1033` English message DLL is installed on the runner, so the
+  localized-`/showIncludes`-prefix hazard could not be reproduced. sccache's
+  runtime detection was executed against the real compiler and does return the
+  right prefix, which is the part the engine depends on.
+- The `/Fd`-under-`/Z7` probe varied `/Fo` at the same time, so it cannot
+  attribute the object difference to `/Fd`. A follow-up holding `/Fo` constant
+  is needed before `msvc.md:68-69` is confirmed or refuted.
 - [ ] copy the artifact captures into `results/*.md`
 - [ ] `README.md`: index + 20-line summary + the contradictions with `msvc.md`
 - [ ] `corrections.md`
