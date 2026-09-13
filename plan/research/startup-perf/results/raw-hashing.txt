@@ -5,21 +5,21 @@
 
 | hash | MB/s | us per 200 KiB | note |
 |---|---|---|---|
-| sha256 | 341 | 586 | stdlib; uses SHA-NI where the CPU has it |
-| sha512 | 517 | 387 | stdlib; AVX2 path, often faster than sha256 without SHA-NI |
-| sha1 | 821 | 244 | stdlib; broken for security, listed as a speed reference only |
-| md5 | 687 | 291 | stdlib; broken for security, listed as a speed reference only |
-| crc32 (Castagnoli) | 21840 | 9 | SSE4.2 hardware CRC; not collision resistant |
-| fnv64a | 775 | 258 | stdlib; not collision resistant |
-| xxhash64 (inlined here) | 11521 | 17 | algorithm public domain, reference impl BSD-2-Clause; not collision resistant |
-| blake3 | not measured | | no module vendored; see results for the cited figure |
+| sha256 | 348 | 575 | stdlib; uses SHA-NI where the CPU has it |
+| sha512 | 522 | 383 | stdlib; AVX2 path, often faster than sha256 without SHA-NI |
+| sha1 | 825 | 242 | stdlib; broken for security, listed as a speed reference only |
+| md5 | 691 | 290 | stdlib; broken for security, listed as a speed reference only |
+| crc32 (Castagnoli) | 23305 | 9 | SSE4.2 hardware CRC; not collision resistant |
+| fnv64a | 772 | 259 | stdlib; not collision resistant |
+| xxhash64 (inlined here) | 11706 | 17 | algorithm public domain, reference impl BSD-2-Clause; not collision resistant |
+| blake3 (lukechampine.com/blake3, MIT) | 6228 | 32 | pure Go, AVX-512 path; cryptographic |
 
 ## end to end: open + read + sha256 + close, one 200 KiB file
 
 | method | us | note |
 |---|---|---|
-| io.Copy into sha256 | 601 | 32 KiB default copy buffer, warm page cache |
-| os.ReadFile then sha256.Sum256 | 638 | one allocation of the whole file, warm page cache |
-| reused 256 KiB buffer | 590 | no per-call allocation, warm page cache |
+| io.Copy into sha256 | 578 | 32 KiB default copy buffer, warm page cache |
+| os.ReadFile then sha256.Sum256 | 607 | one allocation of the whole file, warm page cache |
+| reused 256 KiB buffer | 564 | no per-call allocation, warm page cache |
 | open + close only | 2 | the syscall floor under every row above |
 

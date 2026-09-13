@@ -120,6 +120,13 @@ func timeN(n int, f func()) time.Duration {
 	return ds[len(ds)/2] // median, which is robust to a noisy VM
 }
 
+// benchBuf and benchN are set in main so the optional blake3 file can reach
+// the same buffer and iteration count without re-deriving them.
+var (
+	benchBuf []byte
+	benchN   int
+)
+
 func main() {
 	sizeKiB := flag.Int("size", 4096, "buffer size in KiB for the throughput table")
 	fileKiB := flag.Int("file", 200, "file size in KiB for the end-to-end test")
@@ -130,6 +137,7 @@ func main() {
 	for i := range buf {
 		buf[i] = byte(i * 7)
 	}
+	benchBuf, benchN = buf, *n
 
 	fmt.Printf("# hashing throughput\n\n")
 	fmt.Printf("- buffer: %d KiB, already in memory\n", *sizeKiB)
