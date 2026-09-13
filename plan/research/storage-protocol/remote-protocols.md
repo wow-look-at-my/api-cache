@@ -284,12 +284,38 @@ verbs, and there are several trivially small implementations.
 
 ## 6. Nx, Turborepo, GitHub Actions cache
 
-**Turborepo remote cache**: `GET`/`PUT` `/v8/artifacts/<hash>` with
-`?teamId=`/`?slug=`, `Authorization: Bearer`, plus
-`POST /v8/artifacts/events` for analytics and
-`POST /v8/artifacts` (status query). Optional end-to-end signing via an
-`x-artifact-tag` header carrying an HMAC of the artifact.
-Docs: <https://turborepo.com/docs/core-concepts/remote-caching>.
+**Turborepo remote cache** is the one protocol in this section with a published
+OpenAPI 3.0.3 document for *self-hosted* servers, at
+<https://turborepo.dev/api/remote-cache-spec> (viewer:
+<https://turborepo.dev/docs/openapi>). Its `servers` list names a self-hosted
+`{protocol}://{host}` first and Vercel's `api.vercel.com` second as the
+"reference implementation", and the docs state that every version of `turbo`
+speaks the `v8` endpoints, so a self-hosted base is mounted at `<base>/v8`.
+The surface is six operations over one blob:
+
+| operation | path | note |
+|---|---|---|
+| `HEAD` | `/artifacts/{hash}` | "Check if artifact exists" — one round trip per key |
+| `GET` | `/artifacts/{hash}` | `application/octet-stream` body; 400/401/403/404 |
+| `PUT` | `/artifacts/{hash}` | `Content-Length` **required**; 200 or 202 |
+| `POST` | `/artifacts` | batch "query artifact information" |
+| `POST` | `/artifacts/events` | cache usage analytics |
+| `GET` | `/artifacts/status` | remote caching enabled/disabled |
+
+Auth is one `bearerToken` HTTP security scheme — `Authorization: Bearer
+<token>` — and the spec explicitly leaves the token format to the implementer
+("Static tokens ... JWT ... OAuth2"). Tenancy is two optional query parameters,
+`?teamId=` or its alternative `?slug=`. The metadata rides as headers on both
+the PUT and the 200 GET: `x-artifact-duration`, `x-artifact-tag` (the
+end-to-end signing HMAC), `x-artifact-sha` and `x-artifact-dirty-hash`, plus
+`x-artifact-client-ci` and `x-artifact-client-interactive` on the request.
+
+Two things are worth carrying forward. First, **`x-artifact-tag` is the only
+end-to-end artifact signature in this whole survey** — every other protocol
+trusts the transport and the server. Second, the existence check is a `HEAD`
+**per key**: it is the same round trip REAPI's `FindMissingBlobs` batches and
+go-s3-server's `/_index` removes entirely, which is the comparison in
+"The known-key index" below.
 
 **Nx Cloud** is a proprietary service with a self-hostable server; the
 file-level protocol is not specified publicly in a way worth building against.
@@ -345,9 +371,9 @@ per-entry overhead of a SAS round trip; the pattern that works is storing the
 Yes for the simple ones, and the reason is that four of the seven are the same
 protocol with different spellings.
 
-**ccache HTTP, Gradle, sccache/WebDAV and bazel-remote's `/cas/` are all
-"`GET`/`PUT` an opaque body at a path".** They differ in the path prefix, the
-auth header, and a handful of status-code conventions:
+**ccache HTTP, Gradle, sccache/WebDAV, Turborepo and bazel-remote's `/cas/` are
+all "`GET`/`PUT` an opaque body at a path".** They differ in the path prefix,
+the auth header, and a handful of status-code conventions:
 
 | | path | auth | notable |
 |---|---|---|---|
@@ -355,8 +381,15 @@ auth header, and a handful of status-code conventions:
 | ccache `layout=flat` | `/<key>` | bearer | |
 | ccache `layout=bazel` | `/ac/<hash>`, `/cas/<hash>` | bearer | same shape as bazel-remote |
 | Gradle | `/cache/<key>` | Basic | `413` is a non-error |
+| Turborepo | `/v8/artifacts/<hash>` | bearer | `HEAD` exists; `x-artifact-*` metadata headers; `?teamId=`/`?slug=` |
 | bazel-remote | `/ac/<hash>`, `/cas/<hash>` | Basic / mTLS | `Accept-Encoding: zstd` |
 | go-s3-server | `/<bucket>/<key>` | Basic | `X-Cache-Meta-*`, plain-text errors |
+
+Turborepo is the cheapest dialect to add of the five, because its spec is
+published and machine-readable, its metadata is already header-shaped (which is
+exactly go-s3-server's `X-Cache-Meta-*` convention with a different prefix), and
+its tenancy is two ignorable query parameters. Whether a compiler cache *wants*
+`turbo` as a client is a separate question — but the surface costs a prefix.
 
 One HTTP mux with a prefix per dialect, over one key-normalising blob store, is
 a few hundred lines. The genuine incompatibilities are narrow and known:
@@ -370,6 +403,8 @@ a few hundred lines. The genuine incompatibilities are narrow and known:
   client that treats it as an error will fail the build.
 - **Content encoding.** bazel-remote's compressed PUT needs
   `X-Digest-SizeBytes` because the key names the uncompressed bytes.
+- **Required `Content-Length`.** Turborepo's spec marks it required on the PUT,
+  so a chunked upload is out of spec there while it is fine everywhere else.
 
 **REAPI gRPC is a different matter.** It needs protobuf, gRPC, the `Capabilities`
 service, and a real `ActionResult` model. It can sit over the same blob store
@@ -424,6 +459,9 @@ Against that: no dedupe of a repeated `.d`, and no content-addressed integrity
   `docs/Configuration.md` (Apache-2.0)
 - Gradle build cache — <https://docs.gradle.org/current/userguide/build_cache.html>
 - Turborepo remote caching —
-  <https://turborepo.com/docs/core-concepts/remote-caching>
+  <https://turborepo.dev/docs/core-concepts/remote-caching>
+  (redirected from `turborepo.com`), and the self-hosting OpenAPI 3.0.3
+  document itself, read for the endpoint table above:
+  <https://turborepo.dev/api/remote-cache-spec>
 - GitHub Actions cache — <https://github.com/actions/cache> and
   <https://github.com/actions/toolkit/tree/main/packages/cache> (MIT)

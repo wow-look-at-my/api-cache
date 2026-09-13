@@ -79,3 +79,16 @@ noisy and superseded, exactly as the rules require.
 5. Fold the macOS and portable-restore numbers into `local-layout.md`,
    `container-format.md`, `compression.md` and `README.md`; refresh the
    provenance URLs; settle or restate the `clonefile` open question.
+
+## Predecessor trail
+
+`PREDECESSOR-TRAIL.md` was supplied after this file was first written and has
+been read. It confirms the reading above rather than changing it: the
+predecessor's last recorded intent is *"Run #18 predates my final probes. I'll
+wait for it to finish, then trigger one fresh run"*, and its final tool calls
+are a poll loop waiting on that run. It was killed inside that wait, before the
+fresh run and before any macOS harvest. Its consultation list (ccache
+`result.cpp`/`manifest.cpp`/`cacheentry.cpp`/`localstorage.cpp`, sccache
+`cache.rs`, bazel-remote, `remote_execution.proto`, the Gradle manual, the GHA
+cache v2 Twirp API, go-s3-server's handlers and `cacheclient`) is complete and
+is not repeated here. One fetch it never completed is noted below.
