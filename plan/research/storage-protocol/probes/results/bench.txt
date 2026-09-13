@@ -1,0 +1,18 @@
+goos: linux
+goarch: amd64
+pkg: apicache/probes
+cpu: Intel(R) Xeon(R) Processor @ 2.80GHz
+BenchmarkEncode/lz4/testdata/small.o-4         	   22357	     26698 ns/op	 381.75 MB/s	         0.5162 ratio	     975 B/op	       3 allocs/op
+BenchmarkEncode/zstd9/testdata/small.o-4       	    1694	    326841 ns/op	  31.18 MB/s	         0.3286 ratio	   41393 B/op	       1 allocs/op
+BenchmarkEncode/zstd1/testdata/small.o-4       	   10000	     54758 ns/op	 186.13 MB/s	         0.3528 ratio	   10300 B/op	       1 allocs/op
+BenchmarkEncode/zstd3/testdata/small.o-4       	    9542	     66949 ns/op	 152.24 MB/s	         0.3499 ratio	   10414 B/op	       1 allocs/op
+BenchmarkEncode/s2/testdata/small.o-4          	   56652	     10656 ns/op	 956.46 MB/s	         0.5041 ratio	       0 B/op	       0 allocs/op
+BenchmarkEncode/s2better/testdata/small.o-4    	   30202	     20145 ns/op	 505.92 MB/s	         0.4743 ratio	       3 B/op	       0 allocs/op
+BenchmarkEncode/flate6/testdata/small.o-4      	     913	   1061981 ns/op	   9.60 MB/s	         0.3424 ratio	  813710 B/op	      16 allocs/op
+BenchmarkEncode/lz4/testdata/mid.o-4           	     300	   2022301 ns/op	 261.01 MB/s	         0.3718 ratio	   29954 B/op	       3 allocs/op
+BenchmarkEncode/zstd1/testdata/mid.o-4         	     187	   3299570 ns/op	 159.97 MB/s	         0.2342 ratio	  582465 B/op	       1 allocs/op
+BenchmarkEncode/zstd3/testdata/mid.o-4         	     148	   3920586 ns/op	 134.63 MB/s	         0.2345 ratio	  662004 B/op	       1 allocs/op
+BenchmarkEncode/zstd9/testdata/mid.o-4         	      22	  24859770 ns/op	  21.23 MB/s	         0.2028 ratio	 2954840 B/op	       3 allocs/op
+BenchmarkEncode/s2/testdata/mid.o-4            	     690	    844426 ns/op	 625.09 MB/s	         0.3820 ratio	     867 B/op	       0 allocs/op
+BenchmarkEncode/s2better/testdata/mid.o-4      	     409	   1481933 ns/op	 356.18 MB/s	         0.3579 ratio	    2745 B/op	       0 allocs/op
+BenchmarkEncode/flate6/testdata/mid.o-4        	      30	  17759436 ns/op	  29.72 MB/s	         0.2302 ratio	  822431 B/op	      16 allocs/op
