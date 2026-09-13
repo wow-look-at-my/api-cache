@@ -1,0 +1,12 @@
+# xml load cost
+
+- file: `/home/user/api-cli/samples/github/github.xml`
+- size: 30749 bytes, 663 lines
+- DOM nodes: 528
+- compiled templates (elements whose content holds a placeholder): 76
+- iterations per stage: 300
+
+- serialized sizes: xml 30749 B, gob 28737 B, flat 31202 B, cooked-templates 2862 B
+
+| stage | min us | p50 us | p90 us | mean us | note |
+|---|---|---|---|---|---|
