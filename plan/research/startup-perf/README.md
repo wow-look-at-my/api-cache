@@ -44,11 +44,20 @@ Go runtime neither removes. A **static C client is 608 µs** — within noise of
 C hello that talks to nothing. Link that client dynamically and `ld.so` costs
 **190 µs**, more than twice the round trip it exists to perform.
 
-Two other measured facts. Static linking is worth **30-40% in C**, and dynamic
-`<iostream>` costs as much as Go (2.56x the C floor) — a C++ wrapper linking
-libstdc++ dynamically has thrown away its reason to exist. And sha256 is cheap
-**only with hardware acceleration**: 132 µs per 200 KiB on a runner with
-`sha_ni`, but 4.3x slower on a machine without it.
+**Windows is a different problem.** A static C hello costs **5.2 ms** there
+against 451 µs on Linux: `CreateProcess` is roughly **10x** `fork`+`execve`, so
+a 10,000-file build pays ~52 s of process creation before the wrapper does
+anything. Because that floor is so tall, Go costs only **1.39x** it instead of
+2.31x, and `<iostream>` is free rather than a 2.56x penalty. The one thing that
+gets *worse* is imports: net/http + encoding/xml + text/template cost **2.2 ms**
+on Windows against 0.22 ms on Linux.
+
+Two more measured facts. Static linking is worth **30-40% in C on Linux** (13%
+on Windows, where the CRT DLL is usually already resident), and dynamic
+`<iostream>` on Linux costs as much as Go — a C++ wrapper linking libstdc++
+dynamically has thrown away its reason to exist. And sha256 is cheap **only with
+hardware acceleration**: 132 µs per 200 KiB on a runner with `sha_ni`, but 4.3x
+slower on a machine without it.
 
 ## Files
 
