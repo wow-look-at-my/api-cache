@@ -18,7 +18,9 @@ mkdir -p "$OUT"
 } > "$OUT/machine.txt" 2>&1
 $GO test -run 'TestRatios|TestContainerOverhead' -v . > "$OUT/tables.txt" 2>&1
 $GO test -run '^$' -bench . -benchtime "$BENCHTIME" -count 1 . > "$OUT/bench.txt" 2>&1
-if [ -d binpazer ]; then
+# The binpazer probe is mandatory; a missing directory is a failure.
+[ -d binpazer ] || { echo "binpazer probe directory missing" >&2; exit 1; }
+if true; then
 	(cd binpazer && $GO test -run 'TestBinpazer' -v . > "../$OUT/binpazer-tables.txt" 2>&1)
 	(cd binpazer && $GO test -run '^$' -bench . -benchtime "$BENCHTIME" -count 1 . > "../$OUT/binpazer-bench.txt" 2>&1)
 fi
