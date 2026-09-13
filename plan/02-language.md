@@ -161,7 +161,7 @@ The engine's fixed predicate covers the universal cases (no source, several sour
 - `direct="true"` declares direct mode. The direct key adds the `cpp-only` rows, the `mode="direct"` env group, and the source path and content.
 - `<preprocess>` is an api-cli command: `<argv>` templates with `spread`, `drop` and `roles` helpers the engine adds. The engine runs it with stdout and stderr captured separately, hashes stdout as the preprocessed text, appends stderr's diagnostics to the key, and reads the include set from `report=` (`linemarkers` from stdout, `-H` from stderr, `showincludes`, `sourcedependencies`, `depfile`). A non-zero exit is `preprocessor_error`.
 - `<depend>` declares depend mode: skip the preprocess, run the tool, derive the key from the named report.
-- MSVC's rule sets `report="showincludes"` and adds `/showIncludes` to the child argv; the engine detects the localised prefix at run time the way sccache does (`plan/research/msvc-probes/results/p03-localization.md`).
+- MSVC's rule sets `report="showincludes"` and adds `/showIncludes` to the child argv. The engine parses the English prefix `Note: including file: ` (22 bytes, one extra space per nesting level, measured in `plan/research/msvc-probes/results/p02-showincludes.md`). Localization is out of scope: a compile whose include report carries no recognised prefix declines with `unrecognized_include_report`, loudly, rather than carrying a runtime detection mechanism for a case nobody here has.
 
 ### `<outputs>` — items 5, 6, 12
 
