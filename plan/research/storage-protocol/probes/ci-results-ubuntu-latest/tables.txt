@@ -7,7 +7,7 @@ testdata/mid.o           527880     196256    0.372     201601    0.382     1888
 testdata/big_g1.o       1490416     462647    0.310     468578    0.314     440277    0.295     310109    0.208     300518    0.202     258379    0.173
 testdata/big.o          5040872    1635438    0.324    1668713    0.331    1569350    0.311    1022986    0.203     984348    0.195     836709    0.166
 testdata/mid.d             9124       2618    0.287       2395    0.262       2244    0.246       1773    0.194       1669    0.183       1471    0.161
---- PASS: TestRatios (0.40s)
+--- PASS: TestRatios (0.38s)
 === RUN   TestContainerOverhead
 format                      bytes   overhead      pct
 framed (ACE1)              579896        +72   0.012%
@@ -17,5 +17,17 @@ zip (stored)               580274       +450   0.078%
 zip (deflate)              143192    -436632 -75.304%
 raw member bytes           579824
 --- PASS: TestContainerOverhead (0.01s)
+=== RUN   TestRenameOverOpenFile
+    restore_portable_test.go:165: GOOS=linux: rename over an OPEN file SUCCEEDS; the open handle still reads "old"
+--- PASS: TestRenameOverOpenFile (0.00s)
+=== RUN   TestUnlinkOpenFile
+    restore_portable_test.go:192: GOOS=linux: unlinking an OPEN file SUCCEEDS; the handle still reads "payload"
+--- PASS: TestUnlinkOpenFile (0.00s)
+=== RUN   TestLongPath
+    restore_portable_test.go:214: GOOS=linux: a 324-character path works
+--- PASS: TestLongPath (0.00s)
+=== RUN   TestReflinkSupport
+    restore_test.go:182: FICLONE: NOT SUPPORTED on this filesystem (operation not supported). Reflink restore is unavailable here; ext4 has no reflink support.
+--- PASS: TestReflinkSupport (0.00s)
 PASS
-ok  	apicache/probes	0.416s
+ok  	apicache/probes	0.400s

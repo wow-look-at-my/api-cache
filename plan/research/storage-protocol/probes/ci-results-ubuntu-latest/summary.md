@@ -1,6 +1,6 @@
 ## storage-protocol probes — ubuntu-latest
 
-Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34728376981
+Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34729381343
 
 ### machine
 
@@ -9,7 +9,7 @@ Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 202
 model name	: AMD EPYC 7763 64-Core Processor
 4
 cpu flags of interest: avx2 sha_ni 
-/dev/root      151263856 61139568  90107904  41% /
+/dev/root      151263856 61140844  90106628  41% /
 go version go1.26.8 linux/amd64
 ```
 
@@ -31,6 +31,10 @@ tar + manifest.json        584704      +4880   0.842%
 zip (stored)               580274       +450   0.078%
 zip (deflate)              143192    -436632 -75.304%
 raw member bytes           579824
+    restore_portable_test.go:165: GOOS=linux: rename over an OPEN file SUCCEEDS; the open handle still reads "old"
+    restore_portable_test.go:192: GOOS=linux: unlinking an OPEN file SUCCEEDS; the handle still reads "payload"
+    restore_portable_test.go:214: GOOS=linux: a 324-character path works
+    restore_test.go:182: FICLONE: NOT SUPPORTED on this filesystem (operation not supported). Reflink restore is unavailable here; ext4 has no reflink support.
 
 ```
 
@@ -53,140 +57,149 @@ go: downloading github.com/klauspost/compress v1.19.1
 
 | benchmark | iters | ns/op | rest |
 |---|--:|--:|---|
-| `BenchmarkEncode/lz4/testdata/small.o` | 91802 | 25743 | 397.47 MB/s 0.5174 ratio 494 B/op 3 allocs/op |
-| `BenchmarkEncode/zstd3/testdata/small.o` | 34412 | 70200 | 145.75 MB/s 0.3437 ratio 10288 B/op 1 allocs/op |
-| `BenchmarkEncode/zstd9/testdata/small.o` | 7519 | 269598 | 37.95 MB/s 0.3270 ratio 17258 B/op 1 allocs/op |
-| `BenchmarkEncode/zstd1/testdata/small.o` | 42042 | 57500 | 177.95 MB/s 0.3515 ratio 10254 B/op 1 allocs/op |
-| `BenchmarkEncode/s2/testdata/small.o` | 233767 | 10251 | 998.19 MB/s 0.5017 ratio 0 B/op 0 allocs/op |
-| `BenchmarkEncode/s2better/testdata/small.o` | 122014 | 19683 | 519.83 MB/s 0.4733 ratio 0 B/op 0 allocs/op |
-| `BenchmarkEncode/flate6/testdata/small.o` | 4435 | 510247 | 20.05 MB/s 0.3405 ratio 813700 B/op 16 allocs/op |
-| `BenchmarkEncode/lz4/testdata/mid.o` | 1302 | 1842405 | 286.52 MB/s 0.3718 ratio 7103 B/op 3 allocs/op |
-| `BenchmarkEncode/zstd1/testdata/mid.o` | 862 | 2755086 | 191.60 MB/s 0.2342 ratio 543323 B/op 1 allocs/op |
-| `BenchmarkEncode/zstd3/testdata/mid.o` | 710 | 3338592 | 158.11 MB/s 0.2343 ratio 559479 B/op 1 allocs/op |
-| `BenchmarkEncode/zstd9/testdata/mid.o` | 135 | 17811765 | 29.64 MB/s 0.2028 ratio 927234 B/op 1 allocs/op |
-| `BenchmarkEncode/s2/testdata/mid.o` | 3050 | 783669 | 673.60 MB/s 0.3819 ratio 196 B/op 0 allocs/op |
-| `BenchmarkEncode/s2better/testdata/mid.o` | 1582 | 1492947 | 353.58 MB/s 0.3578 ratio 709 B/op 0 allocs/op |
-| `BenchmarkEncode/flate6/testdata/mid.o` | 146 | 16384049 | 32.22 MB/s 0.2302 ratio 815489 B/op 16 allocs/op |
-| `BenchmarkEncode/lz4/testdata/big_g1.o` | 512 | 4667144 | 319.34 MB/s 0.3104 ratio 17971 B/op 3 allocs/op |
-| `BenchmarkEncode/zstd1/testdata/big_g1.o` | 361 | 6622800 | 225.04 MB/s 0.2081 ratio 1598805 B/op 11 allocs/op |
-| `BenchmarkEncode/zstd3/testdata/big_g1.o` | 297 | 7996786 | 186.38 MB/s 0.2016 ratio 1408084 B/op 9 allocs/op |
-| `BenchmarkEncode/zstd9/testdata/big_g1.o` | 50 | 44094757 | 33.80 MB/s 0.1734 ratio 1999778 B/op 8 allocs/op |
-| `BenchmarkEncode/s2/testdata/big_g1.o` | 1126 | 2132856 | 698.79 MB/s 0.3144 ratio 1382 B/op 0 allocs/op |
-| `BenchmarkEncode/s2better/testdata/big_g1.o` | 580 | 3929573 | 379.28 MB/s 0.2954 ratio 3589 B/op 0 allocs/op |
-| `BenchmarkEncode/flate6/testdata/big_g1.o` | 55 | 41323707 | 36.07 MB/s 0.2014 ratio 832759 B/op 16 allocs/op |
-| `BenchmarkEncode/lz4/testdata/big.o` | 158 | 15082953 | 334.21 MB/s 0.3244 ratio 80672 B/op 3 allocs/op |
-| `BenchmarkEncode/zstd1/testdata/big.o` | 97 | 22438837 | 224.65 MB/s 0.2029 ratio 5503196 B/op 15 allocs/op |
-| `BenchmarkEncode/zstd3/testdata/big.o` | 84 | 25615471 | 196.79 MB/s 0.1953 ratio 5454827 B/op 13 allocs/op |
-| `BenchmarkEncode/zstd9/testdata/big.o` | 13 | 171156118 | 29.45 MB/s 0.1660 ratio 8359667 B/op 16 allocs/op |
-| `BenchmarkEncode/s2/testdata/big.o` | 349 | 6851187 | 735.77 MB/s 0.3310 ratio 14648 B/op 0 allocs/op |
-| `BenchmarkEncode/s2better/testdata/big.o` | 176 | 13520507 | 372.83 MB/s 0.3113 ratio 32026 B/op 0 allocs/op |
-| `BenchmarkEncode/flate6/testdata/big.o` | 15 | 141987359 | 35.50 MB/s 0.1987 ratio 953485 B/op 16 allocs/op |
-| `BenchmarkEncode/lz4/testdata/mid.d` | 169231 | 14056 | 649.11 MB/s 0.2869 ratio 476 B/op 3 allocs/op |
-| `BenchmarkEncode/zstd1/testdata/mid.d` | 81469 | 29348 | 310.89 MB/s 0.1943 ratio 9479 B/op 1 allocs/op |
-| `BenchmarkEncode/zstd3/testdata/mid.d` | 67825 | 35269 | 258.70 MB/s 0.1829 ratio 9496 B/op 1 allocs/op |
-| `BenchmarkEncode/zstd9/testdata/mid.d` | 18901 | 126368 | 72.20 MB/s 0.1612 ratio 12263 B/op 1 allocs/op |
-| `BenchmarkEncode/s2/testdata/mid.d` | 416210 | 5735 | 1591.05 MB/s 0.2625 ratio 0 B/op 0 allocs/op |
-| `BenchmarkEncode/s2better/testdata/mid.d` | 212467 | 11210 | 813.95 MB/s 0.2459 ratio 0 B/op 0 allocs/op |
-| `BenchmarkEncode/flate6/testdata/mid.d` | 10000 | 201345 | 45.32 MB/s 0.1588 ratio 813698 B/op 16 allocs/op |
-| `BenchmarkDecode/lz4/testdata/small.o` | 362202 | 6604 | 1549.48 MB/s 183 B/op 2 allocs/op |
-| `BenchmarkDecode/s2/testdata/small.o` | 564294 | 4240 | 2413.44 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd9/testdata/small.o` | 144477 | 16625 | 615.45 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd1/testdata/small.o` | 138910 | 17239 | 593.54 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd3/testdata/small.o` | 132918 | 16964 | 603.17 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/lz4/testdata/mid.o` | 7159 | 331579 | 1592.02 MB/s 745 B/op 2 allocs/op |
-| `BenchmarkDecode/s2/testdata/mid.o` | 7036 | 340832 | 1548.80 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd1/testdata/mid.o` | 3938 | 606678 | 870.12 MB/s 177 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd3/testdata/mid.o` | 4015 | 596602 | 884.81 MB/s 141 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd9/testdata/mid.o` | 4242 | 563101 | 937.45 MB/s 125 B/op 0 allocs/op |
-| `BenchmarkDecode/lz4/testdata/big_g1.o` | 2490 | 956172 | 1558.73 MB/s 1844 B/op 2 allocs/op |
-| `BenchmarkDecode/s2/testdata/big_g1.o` | 2564 | 934426 | 1595.01 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd1/testdata/big_g1.o` | 1533 | 1557446 | 956.96 MB/s 998 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd3/testdata/big_g1.o` | 1608 | 1489252 | 1000.78 MB/s 953 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd9/testdata/big_g1.o` | 1770 | 1351063 | 1103.14 MB/s 843 B/op 0 allocs/op |
-| `BenchmarkDecode/lz4/testdata/big.o` | 788 | 3036076 | 1660.32 MB/s 5483 B/op 2 allocs/op |
-| `BenchmarkDecode/s2/testdata/big.o` | 780 | 3082142 | 1635.51 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd1/testdata/big.o` | 463 | 5176879 | 973.73 MB/s 10901 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd3/testdata/big.o` | 476 | 5029179 | 1002.33 MB/s 10690 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd9/testdata/big.o` | 513 | 4655460 | 1082.79 MB/s 9839 B/op 0 allocs/op |
-| `BenchmarkDecode/lz4/testdata/mid.d` | 506607 | 4603 | 1982.37 MB/s 168 B/op 2 allocs/op |
-| `BenchmarkDecode/s2/testdata/mid.d` | 1000000 | 2198 | 4151.28 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd1/testdata/mid.d` | 280857 | 8482 | 1075.63 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd3/testdata/mid.d` | 243865 | 9800 | 931.03 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkDecode/zstd9/testdata/mid.d` | 261742 | 9137 | 998.58 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkMemcpyBaseline/testdata/small.o` | 23420923 | 101.8 | 100536.24 MB/s |
-| `BenchmarkMemcpyBaseline/testdata/mid.o` | 163974 | 14341 | 36810.37 MB/s |
-| `BenchmarkMemcpyBaseline/testdata/big_g1.o` | 36148 | 67073 | 22220.66 MB/s |
-| `BenchmarkMemcpyBaseline/testdata/big.o` | 10000 | 224592 | 22444.57 MB/s |
-| `BenchmarkMemcpyBaseline/testdata/mid.d` | 26048524 | 91.75 | 99446.38 MB/s |
-| `BenchmarkCodecConstruct/zstd.NewReader` | 4984446 | 478.0 | 1304 B/op 7 allocs/op |
-| `BenchmarkCodecConstruct/zstd.NewReader/default-concurrency` | 2043630 | 1169 | 3776 B/op 13 allocs/op |
-| `BenchmarkCodecConstruct/zstd.NewWriter` | 14910576 | 155.9 | 640 B/op 1 allocs/op |
-| `BenchmarkCodecConstruct/lz4.NewReader` | 20770929 | 116.5 | 304 B/op 2 allocs/op |
-| `BenchmarkCodecConstruct/lz4.NewWriter` | 17813053 | 135.1 | 288 B/op 2 allocs/op |
-| `BenchmarkDecodeStreamVsOneShot/zstd/DecodeAll/pooled` | 3405 | 704893 | 748.88 MB/s 59 B/op 0 allocs/op |
-| `BenchmarkDecodeStreamVsOneShot/zstd/NewReader-per-call/stream` | 2932 | 823010 | 641.40 MB/s 1311210 B/op 27 allocs/op |
-| `BenchmarkDecodeStreamVsOneShot/lz4/NewReader-per-call/stream` | 3147 | 994114 | 531.01 MB/s 8386923 B/op 7 allocs/op |
-| `BenchmarkDecodeStreamVsOneShot/lz4/Reset/stream` | 7047 | 328417 | 1607.35 MB/s 1350 B/op 2 allocs/op |
-| `BenchmarkContainerPack/framed` | 10628 | 210353 | 2756.43 MB/s 1597569 B/op 4 allocs/op |
-| `BenchmarkContainerPack/tar` | 5988 | 423696 | 1368.49 MB/s 1599276 B/op 26 allocs/op |
-| `BenchmarkContainerPack/tar+manifest` | 4874 | 423974 | 1367.59 MB/s 1605534 B/op 71 allocs/op |
-| `BenchmarkContainerPack/zipStored` | 4198 | 574773 | 1008.79 MB/s 1607630 B/op 59 allocs/op |
-| `BenchmarkContainerUnpackAll/framed` | 41725576 | 53.96 | 10746408.40 MB/s 96 B/op 1 allocs/op |
-| `BenchmarkContainerUnpackAll/tar` | 19638 | 124201 | 4668.44 MB/s 588023 B/op 62 allocs/op |
-| `BenchmarkContainerUnpackAll/zipStored` | 9639 | 305091 | 1900.49 MB/s 1198089 B/op 110 allocs/op |
-| `BenchmarkContainerReadObjectOnly/framed/inmem` | 1000000000 | 1.872 | 281996833.51 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkContainerReadObjectOnly/framed/pread` | 22521 | 97784 | 5398.45 MB/s 532481 B/op 1 allocs/op |
-| `BenchmarkContainerReadObjectOnly/tar/scan` | 13026 | 186821 | 2825.60 MB/s 535729 B/op 56 allocs/op |
-| `BenchmarkContainerReadObjectOnly/zipStored/central-dir` | 5358 | 410268 | 1286.67 MB/s 1079869 B/op 55 allocs/op |
-| `BenchmarkStat` | 1265865 | 1896 | 256 B/op 2 allocs/op |
-| `BenchmarkStatMiss` | 1813165 | 1331 | 304 B/op 3 allocs/op |
-| `BenchmarkOpenClose` | 444057 | 5389 | 152 B/op 3 allocs/op |
-| `BenchmarkOpenReadAll/4KiB` | 355687 | 6529 | 627.35 MB/s 152 B/op 3 allocs/op |
-| `BenchmarkOpenReadAll/200KiB` | 173029 | 14363 | 14259.24 MB/s 168 B/op 3 allocs/op |
-| `BenchmarkOpenReadAll/512KiB` | 91831 | 26401 | 19858.41 MB/s 168 B/op 3 allocs/op |
-| `BenchmarkOpenReadAll/5MiB` | 13316 | 180410 | 29060.99 MB/s 152 B/op 3 allocs/op |
-| `BenchmarkReadOneContainer` | 86280 | 27548 | 20072.36 MB/s 168 B/op 3 allocs/op |
-| `BenchmarkReadFourBlobs` | 51115 | 47181 | 11719.99 MB/s 608 B/op 12 allocs/op |
-| `BenchmarkHashSHA256/4KiB` | 849756 | 2733 | 1498.84 MB/s 160 B/op 2 allocs/op |
-| `BenchmarkHashSHA256/200KiB` | 18584 | 129163 | 1585.60 MB/s 160 B/op 2 allocs/op |
-| `BenchmarkHashSHA256/512KiB` | 7254 | 330371 | 1586.97 MB/s 160 B/op 2 allocs/op |
-| `BenchmarkHashSHA256/5MiB` | 724 | 3300682 | 1588.42 MB/s 160 B/op 2 allocs/op |
-| `BenchmarkHashCRC32C/4KiB` | 14002564 | 171.3 | 23912.04 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkHashCRC32C/200KiB` | 270472 | 8870 | 23089.39 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkHashCRC32C/512KiB` | 102998 | 23169 | 22628.52 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkHashCRC32C/5MiB` | 8990 | 226766 | 23120.26 MB/s 0 B/op 0 allocs/op |
-| `BenchmarkRawStat` | 1401962 | 1711 | 48 B/op 1 allocs/op |
-| `BenchmarkRawStatMiss` | 2040666 | 1174 | 48 B/op 1 allocs/op |
-| `BenchmarkRestoreCopyRename/200KiB` | 9645 | 474136 | 431.94 MB/s 800 B/op 11 allocs/op |
-| `BenchmarkRestoreCopyRename/512KiB` | 1608 | 1277049 | 410.55 MB/s 800 B/op 11 allocs/op |
-| `BenchmarkRestoreCopyRename/5MiB` | 193 | 12624646 | 415.29 MB/s 800 B/op 11 allocs/op |
-| `BenchmarkRestoreCopyFileRange/200KiB` | 4624 | 501469 | 408.40 MB/s 928 B/op 12 allocs/op |
-| `BenchmarkRestoreCopyFileRange/512KiB` | 1933 | 1283121 | 408.60 MB/s 928 B/op 12 allocs/op |
-| `BenchmarkRestoreCopyFileRange/5MiB` | 193 | 12620609 | 415.42 MB/s 864 B/op 12 allocs/op |
-| `BenchmarkRestoreHardLink/200KiB` | 193112 | 12282 | 16674.35 MB/s 192 B/op 3 allocs/op |
-| `BenchmarkRestoreHardLink/512KiB` | 196674 | 12278 | 42701.45 MB/s 192 B/op 3 allocs/op |
-| `BenchmarkRestoreHardLink/5MiB` | 196100 | 12300 | 426243.43 MB/s 192 B/op 3 allocs/op |
+| `BenchmarkEncode/lz4/testdata/small.o` | 86818 | 27883 | 366.96 MB/s 0.5174 ratio 498 B/op 3 allocs/op |
+| `BenchmarkEncode/zstd9/testdata/small.o` | 7996 | 268941 | 38.05 MB/s 0.3270 ratio 16840 B/op 1 allocs/op |
+| `BenchmarkEncode/zstd1/testdata/small.o` | 42337 | 56897 | 179.83 MB/s 0.3515 ratio 10254 B/op 1 allocs/op |
+| `BenchmarkEncode/zstd3/testdata/small.o` | 34092 | 70354 | 145.44 MB/s 0.3437 ratio 10288 B/op 1 allocs/op |
+| `BenchmarkEncode/s2/testdata/small.o` | 234643 | 10214 | 1001.73 MB/s 0.5017 ratio 0 B/op 0 allocs/op |
+| `BenchmarkEncode/s2better/testdata/small.o` | 120481 | 19890 | 514.42 MB/s 0.4733 ratio 0 B/op 0 allocs/op |
+| `BenchmarkEncode/flate6/testdata/small.o` | 4532 | 498569 | 20.52 MB/s 0.3405 ratio 813698 B/op 16 allocs/op |
+| `BenchmarkEncode/lz4/testdata/mid.o` | 1338 | 1775300 | 297.35 MB/s 0.3718 ratio 6922 B/op 3 allocs/op |
+| `BenchmarkEncode/zstd1/testdata/mid.o` | 860 | 2767552 | 190.74 MB/s 0.2342 ratio 543349 B/op 1 allocs/op |
+| `BenchmarkEncode/zstd3/testdata/mid.o` | 712 | 3336333 | 158.22 MB/s 0.2343 ratio 559403 B/op 1 allocs/op |
+| `BenchmarkEncode/zstd9/testdata/mid.o` | 157 | 15764210 | 33.49 MB/s 0.2028 ratio 871918 B/op 1 allocs/op |
+| `BenchmarkEncode/s2/testdata/mid.o` | 3070 | 779244 | 677.43 MB/s 0.3819 ratio 194 B/op 0 allocs/op |
+| `BenchmarkEncode/s2better/testdata/mid.o` | 1618 | 1473320 | 358.29 MB/s 0.3578 ratio 693 B/op 0 allocs/op |
+| `BenchmarkEncode/flate6/testdata/mid.o` | 147 | 16154091 | 32.68 MB/s 0.2302 ratio 815477 B/op 16 allocs/op |
+| `BenchmarkEncode/lz4/testdata/big_g1.o` | 529 | 4511086 | 330.39 MB/s 0.3104 ratio 17407 B/op 3 allocs/op |
+| `BenchmarkEncode/zstd1/testdata/big_g1.o` | 360 | 6607195 | 225.57 MB/s 0.2081 ratio 1598876 B/op 11 allocs/op |
+| `BenchmarkEncode/zstd3/testdata/big_g1.o` | 302 | 7906672 | 188.50 MB/s 0.2016 ratio 1407014 B/op 9 allocs/op |
+| `BenchmarkEncode/zstd9/testdata/big_g1.o` | 60 | 34751917 | 42.89 MB/s 0.1734 ratio 1822134 B/op 8 allocs/op |
+| `BenchmarkEncode/s2/testdata/big_g1.o` | 1123 | 2117904 | 703.72 MB/s 0.3144 ratio 1386 B/op 0 allocs/op |
+| `BenchmarkEncode/s2better/testdata/big_g1.o` | 614 | 3878148 | 384.31 MB/s 0.2954 ratio 3389 B/op 0 allocs/op |
+| `BenchmarkEncode/flate6/testdata/big_g1.o` | 57 | 40650567 | 36.66 MB/s 0.2014 ratio 832086 B/op 16 allocs/op |
+| `BenchmarkEncode/lz4/testdata/big.o` | 164 | 14573761 | 345.89 MB/s 0.3244 ratio 77735 B/op 3 allocs/op |
+| `BenchmarkEncode/zstd1/testdata/big.o` | 98 | 22765909 | 221.42 MB/s 0.2029 ratio 5502213 B/op 15 allocs/op |
+| `BenchmarkEncode/zstd3/testdata/big.o` | 88 | 25815850 | 195.26 MB/s 0.1953 ratio 5444451 B/op 13 allocs/op |
+| `BenchmarkEncode/zstd9/testdata/big.o` | 15 | 150939534 | 33.40 MB/s 0.1660 ratio 7810841 B/op 16 allocs/op |
+| `BenchmarkEncode/s2/testdata/big.o` | 340 | 6954068 | 724.88 MB/s 0.3310 ratio 15036 B/op 0 allocs/op |
+| `BenchmarkEncode/s2better/testdata/big.o` | 182 | 13104126 | 384.68 MB/s 0.3113 ratio 30973 B/op 0 allocs/op |
+| `BenchmarkEncode/flate6/testdata/big.o` | 16 | 140798085 | 35.80 MB/s 0.1987 ratio 944749 B/op 16 allocs/op |
+| `BenchmarkEncode/lz4/testdata/mid.d` | 180477 | 13225 | 689.89 MB/s 0.2869 ratio 495 B/op 3 allocs/op |
+| `BenchmarkEncode/zstd1/testdata/mid.d` | 81206 | 29421 | 310.12 MB/s 0.1943 ratio 9479 B/op 1 allocs/op |
+| `BenchmarkEncode/zstd3/testdata/mid.d` | 69588 | 34450 | 264.85 MB/s 0.1829 ratio 9495 B/op 1 allocs/op |
+| `BenchmarkEncode/zstd9/testdata/mid.d` | 18829 | 127000 | 71.84 MB/s 0.1612 ratio 12274 B/op 1 allocs/op |
+| `BenchmarkEncode/s2/testdata/mid.d` | 412258 | 5781 | 1578.39 MB/s 0.2625 ratio 0 B/op 0 allocs/op |
+| `BenchmarkEncode/s2better/testdata/mid.d` | 213447 | 11153 | 818.11 MB/s 0.2459 ratio 0 B/op 0 allocs/op |
+| `BenchmarkEncode/flate6/testdata/mid.d` | 13540 | 176852 | 51.59 MB/s 0.1588 ratio 813697 B/op 16 allocs/op |
+| `BenchmarkDecode/lz4/testdata/small.o` | 412268 | 5712 | 1791.23 MB/s 180 B/op 2 allocs/op |
+| `BenchmarkDecode/s2/testdata/small.o` | 626853 | 3800 | 2692.87 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd3/testdata/small.o` | 138811 | 17282 | 592.07 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd9/testdata/small.o` | 141567 | 16889 | 605.83 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd1/testdata/small.o` | 136110 | 17552 | 582.94 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/lz4/testdata/mid.o` | 8322 | 279589 | 1888.06 MB/s 664 B/op 2 allocs/op |
+| `BenchmarkDecode/s2/testdata/mid.o` | 7176 | 333564 | 1582.55 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd1/testdata/mid.o` | 3876 | 615416 | 857.76 MB/s 179 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd3/testdata/mid.o` | 3936 | 605609 | 871.65 MB/s 143 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd9/testdata/mid.o` | 4165 | 570707 | 924.96 MB/s 128 B/op 0 allocs/op |
+| `BenchmarkDecode/lz4/testdata/big_g1.o` | 2908 | 826205 | 1803.93 MB/s 160 B/op 2 allocs/op |
+| `BenchmarkDecode/s2/testdata/big_g1.o` | 2587 | 925058 | 1611.16 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd1/testdata/big_g1.o` | 1508 | 1585551 | 940.00 MB/s 1014 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd3/testdata/big_g1.o` | 1580 | 1517287 | 982.29 MB/s 970 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd9/testdata/big_g1.o` | 1736 | 1370671 | 1087.36 MB/s 859 B/op 0 allocs/op |
+| `BenchmarkDecode/lz4/testdata/big.o` | 919 | 2631470 | 1915.61 MB/s 4724 B/op 2 allocs/op |
+| `BenchmarkDecode/s2/testdata/big.o` | 794 | 3014093 | 1672.43 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd1/testdata/big.o` | 454 | 5263619 | 957.68 MB/s 11117 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd3/testdata/big.o` | 468 | 5113678 | 985.76 MB/s 10872 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd9/testdata/big.o` | 507 | 4720892 | 1067.78 MB/s 9955 B/op 0 allocs/op |
+| `BenchmarkDecode/lz4/testdata/mid.d` | 613645 | 3807 | 2396.53 MB/s 173 B/op 2 allocs/op |
+| `BenchmarkDecode/s2/testdata/mid.d` | 1000000 | 2208 | 4132.91 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd1/testdata/mid.d` | 268705 | 8975 | 1016.57 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd3/testdata/mid.d` | 240358 | 9936 | 918.25 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkDecode/zstd9/testdata/mid.d` | 259582 | 9212 | 990.39 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkMemcpyBaseline/testdata/small.o` | 23546038 | 101.8 | 100514.77 MB/s |
+| `BenchmarkMemcpyBaseline/testdata/mid.o` | 166148 | 14222 | 37117.62 MB/s |
+| `BenchmarkMemcpyBaseline/testdata/big_g1.o` | 37009 | 64789 | 23004.14 MB/s |
+| `BenchmarkMemcpyBaseline/testdata/big.o` | 10000 | 218531 | 23067.05 MB/s |
+| `BenchmarkMemcpyBaseline/testdata/mid.d` | 26180216 | 91.65 | 99556.70 MB/s |
+| `BenchmarkCodecConstruct/zstd.NewReader` | 4969340 | 481.2 | 1304 B/op 7 allocs/op |
+| `BenchmarkCodecConstruct/zstd.NewReader/default-concurrency` | 2030763 | 1183 | 3776 B/op 13 allocs/op |
+| `BenchmarkCodecConstruct/zstd.NewWriter` | 15288360 | 156.8 | 640 B/op 1 allocs/op |
+| `BenchmarkCodecConstruct/lz4.NewReader` | 20359406 | 118.2 | 304 B/op 2 allocs/op |
+| `BenchmarkCodecConstruct/lz4.NewWriter` | 17691790 | 135.0 | 288 B/op 2 allocs/op |
+| `BenchmarkDecodeStreamVsOneShot/zstd/DecodeAll/pooled` | 3358 | 714547 | 738.76 MB/s 60 B/op 0 allocs/op |
+| `BenchmarkDecodeStreamVsOneShot/zstd/NewReader-per-call/stream` | 2769 | 828292 | 637.31 MB/s 1311210 B/op 27 allocs/op |
+| `BenchmarkDecodeStreamVsOneShot/lz4/NewReader-per-call/stream` | 3513 | 750358 | 703.50 MB/s 8387196 B/op 7 allocs/op |
+| `BenchmarkDecodeStreamVsOneShot/lz4/Reset/stream` | 8234 | 280528 | 1881.74 MB/s 1179 B/op 2 allocs/op |
+| `BenchmarkContainerPack/framed` | 8763 | 236869 | 2447.87 MB/s 1597569 B/op 4 allocs/op |
+| `BenchmarkContainerPack/tar` | 5404 | 450690 | 1286.52 MB/s 1599275 B/op 26 allocs/op |
+| `BenchmarkContainerPack/tar+manifest` | 4964 | 480661 | 1206.30 MB/s 1605548 B/op 71 allocs/op |
+| `BenchmarkContainerPack/zipStored` | 4940 | 529665 | 1094.70 MB/s 1607628 B/op 59 allocs/op |
+| `BenchmarkContainerUnpackAll/framed` | 42681594 | 51.99 | 11151682.52 MB/s 96 B/op 1 allocs/op |
+| `BenchmarkContainerUnpackAll/tar` | 17209 | 133388 | 4346.90 MB/s 588054 B/op 62 allocs/op |
+| `BenchmarkContainerUnpackAll/zipStored` | 8490 | 309290 | 1874.70 MB/s 1198089 B/op 110 allocs/op |
+| `BenchmarkContainerReadObjectOnly/framed/inmem` | 1000000000 | 1.886 | 279900715.52 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkContainerReadObjectOnly/framed/pread` | 26296 | 83768 | 6301.71 MB/s 532481 B/op 1 allocs/op |
+| `BenchmarkContainerReadObjectOnly/tar/scan` | 14398 | 169268 | 3118.61 MB/s 535724 B/op 56 allocs/op |
+| `BenchmarkContainerReadObjectOnly/zipStored/central-dir` | 5317 | 412634 | 1279.29 MB/s 1079869 B/op 55 allocs/op |
+| `BenchmarkStat` | 1264042 | 1896 | 256 B/op 2 allocs/op |
+| `BenchmarkStatMiss` | 1798956 | 1333 | 304 B/op 3 allocs/op |
+| `BenchmarkOpenClose` | 432843 | 5434 | 152 B/op 3 allocs/op |
+| `BenchmarkOpenReadAll/4KiB` | 364119 | 6515 | 628.71 MB/s 152 B/op 3 allocs/op |
+| `BenchmarkOpenReadAll/200KiB` | 170092 | 14068 | 14557.42 MB/s 168 B/op 3 allocs/op |
+| `BenchmarkOpenReadAll/512KiB` | 91648 | 26274 | 19954.52 MB/s 168 B/op 3 allocs/op |
+| `BenchmarkOpenReadAll/5MiB` | 13250 | 181487 | 28888.49 MB/s 152 B/op 3 allocs/op |
+| `BenchmarkReadOneContainer` | 86377 | 27746 | 19929.65 MB/s 168 B/op 3 allocs/op |
+| `BenchmarkReadFourBlobs` | 51457 | 46664 | 11849.83 MB/s 608 B/op 12 allocs/op |
+| `BenchmarkHashSHA256/4KiB` | 859417 | 2713 | 1509.57 MB/s 160 B/op 2 allocs/op |
+| `BenchmarkHashSHA256/200KiB` | 18594 | 129057 | 1586.89 MB/s 160 B/op 2 allocs/op |
+| `BenchmarkHashSHA256/512KiB` | 7221 | 330510 | 1586.30 MB/s 160 B/op 2 allocs/op |
+| `BenchmarkHashSHA256/5MiB` | 724 | 3301847 | 1587.86 MB/s 160 B/op 2 allocs/op |
+| `BenchmarkHashCRC32C/4KiB` | 13993789 | 171.6 | 23870.54 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkHashCRC32C/200KiB` | 274536 | 8745 | 23419.83 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkHashCRC32C/512KiB` | 103647 | 23189 | 22609.53 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkHashCRC32C/5MiB` | 9636 | 236004 | 22215.22 MB/s 0 B/op 0 allocs/op |
+| `BenchmarkPortableRestoreCopyRename/200KiB` | 9576 | 478612 | 427.90 MB/s 896 B/op 11 allocs/op |
+| `BenchmarkPortableRestoreCopyRename/512KiB` | 2445 | 1266139 | 414.08 MB/s 864 B/op 11 allocs/op |
+| `BenchmarkPortableRestoreCopyRename/5MiB` | 193 | 12641133 | 414.75 MB/s 864 B/op 11 allocs/op |
+| `BenchmarkPortableRestoreCopyFsyncRename/200KiB` | 4034 | 590430 | 346.87 MB/s 896 B/op 11 allocs/op |
+| `BenchmarkPortableRestoreCopyFsyncRename/512KiB` | 1818 | 1359202 | 385.73 MB/s 896 B/op 11 allocs/op |
+| `BenchmarkPortableRestoreCopyFsyncRename/5MiB` | 192 | 12692042 | 413.08 MB/s 896 B/op 11 allocs/op |
+| `BenchmarkPortableRestoreHardLink/200KiB` | 192289 | 12236 | 16738.02 MB/s 208 B/op 3 allocs/op |
+| `BenchmarkPortableRestoreHardLink/512KiB` | 194816 | 12299 | 42627.46 MB/s 208 B/op 3 allocs/op |
+| `BenchmarkPortableRestoreHardLink/5MiB` | 193047 | 12244 | 428190.50 MB/s 192 B/op 3 allocs/op |
+| `BenchmarkRawStat` | 1384159 | 1734 | 48 B/op 1 allocs/op |
+| `BenchmarkRawStatMiss` | 2032765 | 1178 | 48 B/op 1 allocs/op |
+| `BenchmarkRestoreCopyRename/200KiB` | 10000 | 468808 | 436.85 MB/s 800 B/op 11 allocs/op |
+| `BenchmarkRestoreCopyRename/512KiB` | 2449 | 1263426 | 414.97 MB/s 800 B/op 11 allocs/op |
+| `BenchmarkRestoreCopyRename/5MiB` | 193 | 12639196 | 414.81 MB/s 800 B/op 11 allocs/op |
+| `BenchmarkRestoreCopyFileRange/200KiB` | 4657 | 507129 | 403.84 MB/s 928 B/op 12 allocs/op |
+| `BenchmarkRestoreCopyFileRange/512KiB` | 1671 | 1279199 | 409.86 MB/s 928 B/op 12 allocs/op |
+| `BenchmarkRestoreCopyFileRange/5MiB` | 192 | 12733676 | 411.73 MB/s 864 B/op 12 allocs/op |
+| `BenchmarkRestoreHardLink/200KiB` | 191359 | 12331 | 16608.31 MB/s 192 B/op 3 allocs/op |
+| `BenchmarkRestoreHardLink/512KiB` | 195646 | 12253 | 42789.70 MB/s 192 B/op 3 allocs/op |
+| `BenchmarkRestoreHardLink/5MiB` | 196617 | 12270 | 427279.02 MB/s 192 B/op 3 allocs/op |
 
 ### binpazer benchmarks
 
 | benchmark | iters | ns/op | rest |
 |---|--:|--:|---|
-| `BenchmarkBaselineReadOne/tar/scan` | 17648 | 140539 | 3756.11 MB/s 535755 B/op 56 allocs/op |
-| `BenchmarkBaselineReadOne/framed/pread` | 31095 | 64321 | 8206.91 MB/s 532609 B/op 2 allocs/op |
-| `BenchmarkBinpazerPack/stored` | 9460 | 292853 | 1979.92 MB/s 1337439 B/op 55 allocs/op |
-| `BenchmarkBinpazerPack/stored+crc` | 7780 | 341462 | 1698.06 MB/s 1337507 B/op 60 allocs/op |
-| `BenchmarkBinpazerPack/zstd` | 387 | 6329890 | 91.60 MB/s 28790686 B/op 296 allocs/op |
-| `BenchmarkBinpazerPack/lz4` | 1071 | 2196127 | 264.02 MB/s 1413956 B/op 82 allocs/op |
-| `BenchmarkBinpazerReadAll/stored` | 5210 | 444255 | 1305.16 MB/s 1258313 B/op 122 allocs/op |
-| `BenchmarkBinpazerReadAll/stored+crc` | 6156 | 428105 | 1354.40 MB/s 1258314 B/op 122 allocs/op |
-| `BenchmarkBinpazerReadAll/zstd` | 1252 | 2002478 | 289.55 MB/s 12693329 B/op 303 allocs/op |
-| `BenchmarkBinpazerReadAll/lz4` | 4369 | 528358 | 1097.41 MB/s 1469769 B/op 150 allocs/op |
-| `BenchmarkBinpazerReadOne/stored` | 5678 | 464247 | 1137.07 MB/s 1140691 B/op 80 allocs/op |
-| `BenchmarkBinpazerReadOne/stored+crc` | 5718 | 459345 | 1149.20 MB/s 1140695 B/op 80 allocs/op |
-| `BenchmarkBinpazerReadOne/zstd` | 1563 | 1817533 | 290.44 MB/s 12259827 B/op 140 allocs/op |
-| `BenchmarkBinpazerReadOne/lz4` | 4292 | 481483 | 1096.36 MB/s 1376812 B/op 87 allocs/op |
-| `BenchmarkBinpazerReadOne/sized/stored` | 12067 | 203022 | 2600.11 MB/s 600272 B/op 59 allocs/op |
-| `BenchmarkBinpazerReadOne/sized/zstd` | 1304 | 1793050 | 294.40 MB/s 11722224 B/op 119 allocs/op |
-| `BenchmarkBinpazerReadOne/sized/lz4` | 2784 | 870666 | 606.29 MB/s 8988402 B/op 68 allocs/op |
-| `BenchmarkBinpazerReadOne/stored/file` | 9770 | 240420 | 2195.66 MB/s 1140640 B/op 79 allocs/op |
+| `BenchmarkBaselineReadOne/tar/scan` | 20286 | 140597 | 3754.57 MB/s 535628 B/op 56 allocs/op |
+| `BenchmarkBaselineReadOne/framed/pread` | 37816 | 59540 | 8865.99 MB/s 532609 B/op 2 allocs/op |
+| `BenchmarkBinpazerPack/stored` | 9248 | 361144 | 1605.52 MB/s 1337426 B/op 55 allocs/op |
+| `BenchmarkBinpazerPack/stored+crc` | 6975 | 402277 | 1441.36 MB/s 1337495 B/op 60 allocs/op |
+| `BenchmarkBinpazerPack/zstd` | 420 | 5845554 | 99.19 MB/s 28790618 B/op 295 allocs/op |
+| `BenchmarkBinpazerPack/lz4` | 1118 | 2110125 | 274.78 MB/s 1439312 B/op 82 allocs/op |
+| `BenchmarkBinpazerReadAll/stored` | 6570 | 361050 | 1605.94 MB/s 1258315 B/op 122 allocs/op |
+| `BenchmarkBinpazerReadAll/stored+crc` | 7674 | 363545 | 1594.92 MB/s 1258314 B/op 122 allocs/op |
+| `BenchmarkBinpazerReadAll/zstd` | 1447 | 1679559 | 345.22 MB/s 12689950 B/op 302 allocs/op |
+| `BenchmarkBinpazerReadAll/lz4` | 4723 | 502655 | 1153.52 MB/s 1457634 B/op 150 allocs/op |
+| `BenchmarkBinpazerReadOne/stored` | 8814 | 331797 | 1590.97 MB/s 1140695 B/op 80 allocs/op |
+| `BenchmarkBinpazerReadOne/stored+crc` | 6792 | 339777 | 1553.61 MB/s 1140696 B/op 80 allocs/op |
+| `BenchmarkBinpazerReadOne/zstd` | 1729 | 1382409 | 381.86 MB/s 12254822 B/op 138 allocs/op |
+| `BenchmarkBinpazerReadOne/lz4` | 4774 | 465413 | 1134.22 MB/s 1353911 B/op 87 allocs/op |
+| `BenchmarkBinpazerReadOne/sized/stored` | 13186 | 187139 | 2820.80 MB/s 600273 B/op 59 allocs/op |
+| `BenchmarkBinpazerReadOne/sized/zstd` | 1221 | 2063007 | 255.88 MB/s 11722558 B/op 119 allocs/op |
+| `BenchmarkBinpazerReadOne/sized/lz4` | 2655 | 852091 | 619.51 MB/s 8988330 B/op 68 allocs/op |
+| `BenchmarkBinpazerReadOne/stored/file` | 6993 | 318236 | 1658.77 MB/s 1140642 B/op 79 allocs/op |
 

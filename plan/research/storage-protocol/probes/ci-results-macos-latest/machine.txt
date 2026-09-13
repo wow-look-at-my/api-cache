@@ -1,0 +1,6 @@
+Darwin iad20-gt1022-8ffb64d1-112e-4a0f-8f9c-feae05cebade-B66EC2C165F6.local 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:43 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_VMAPPLE arm64
+Apple M1 (Virtual)
+3
+cpu flags of interest: NOT PROBED (no /proc/cpuinfo)
+/dev/disk2s5  670064640 428486856 200018376    69% 1879240 1000091880    0%   /System/Volumes/Data
+go version go1.26.8 darwin/arm64

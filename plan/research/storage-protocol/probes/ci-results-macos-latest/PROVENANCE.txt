@@ -1,0 +1,9 @@
+Artifact: storage-protocol-macos-latest
+Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34729381343
+Commit: 241bdc50b8ef8b8a550eaed7d81e5987a3843bb8
+Runner: macos-latest, Apple M1 (Virtual), 3 vCPU, APFS on /dev/disk2s5
+Toolchain: Apple clang through the gcc/g++ shims, Go 1.26.8 darwin/arm64
+benchtime: 2s
+First macOS run. Different ISA and different compiler from the other two
+runners, so its corpus differs in size: read the ratios, not the byte counts,
+against Linux and Windows.
