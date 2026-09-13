@@ -112,6 +112,28 @@ Executing 20 parsed templates is 16 µs, and reading the 30 KB file from a warm
 page cache is 11 µs. Neither is worth optimizing. The cost is entirely in
 getting from bytes to a parsed template.
 
+## macOS ARM64 confirms all of it independently
+
+The same probe on `macos-latest`, same run
+([`gha/config-load-macos-arm64/`](gha/config-load-macos-arm64/)):
+
+| stage | linux-x64 p50 µs | macos-arm64 p50 µs |
+|---|---|---|
+| parse (`ParseDOM`) | 897.5 | 766.0 |
+| `template.Parse` x20, **with** func map | 808.8 | 824.0 |
+| `template.Parse` x20, **no** func map | 50.2 | 73.7 |
+| FULL: read+parse+compile+tparse | 2268.6 | 1754.9 |
+| cooked decode (templates only) | 1.7 | 1.4 |
+| gob decode (DOM) | 344.4 | 281.1 |
+| flat decode (DOM) | 21.6 | 18.9 |
+| shared-root Parse xALL | 276.1 | 223.8 |
+| **BEST: cooked + shared root** | **279.1** | **206.7** |
+
+Every finding above holds on a different CPU architecture, a different
+operating system and a different compiler: the func-map copy is still 11-16x
+the parse it is attached to, gob is still 15x the flat format, and cooking plus
+a shared root is still an 8-8.5x reduction end to end.
+
 ## Caveats
 
 - One config, from one project. A larger config scales the parse and the

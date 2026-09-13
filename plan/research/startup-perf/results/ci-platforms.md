@@ -17,7 +17,7 @@ a different machine.
 |---|---|---|
 | Linux x64 | `gcc -static`, whole binary | yes |
 | Linux ARM64 | `gcc -static`, whole binary | yes |
-| macOS ARM64 | **nothing.** Apple does not support statically linking libSystem, and clang there links libc++ dynamically | not measurable |
+| macOS ARM64 | **nothing.** Apple does not support statically linking libSystem, and clang there links libc++ dynamically | not measurable; the dynamic rows are measured |
 | Windows x64 | MSVC `/MT` (static CRT) versus `/MD` (CRT DLL) | see below |
 
 ## Linux x64 (`ubuntu-latest`), run [34728324912](https://github.com/wow-look-at-my/api-cache/actions/runs/34728324912)
@@ -48,25 +48,51 @@ The ratios track x64 almost exactly. Static is worth 26% here against 31% on
 x64, and every C++ row is within 0.06 of its x64 counterpart. **The link-mode
 finding is architecture-independent on Linux.**
 
-## macOS ARM64 (`macos-latest`)
+## macOS ARM64 (`macos-latest`), run [34728781892](https://github.com/wow-look-at-my/api-cache/actions/runs/34728781892)
+
+Apple clang 21.0.0, 3 cores. **Note the unit: milliseconds.**
 
 **There is no static row on macOS, and that is a platform fact rather than a
 missing measurement.** Apple ships no `crt1.o` for a fully static link, the
 libSystem ABI is the dylib, and clang on macOS links libc++ dynamically. The
-job does not attempt those targets, it names them as unsupported, and the
-report says so in place of numbers.
+job does not attempt those targets, it names them unsupported, and the report
+says so in place of numbers.
 
-What that means for the project: **any design whose startup number depends on
-static linking does not have that number on macOS.** A C or C++ wrapper that is
-fast on Linux because it is statically linked is, on macOS, a dynamically
-linked one — and the Linux tables above show dynamic C++ costing as much as Go.
+| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |
+|:---|---:|---:|---:|---:|
+| `C++ iostream, dynamic` | 2.0 ± 0.6 | 1.4 | 3.9 | 1.00 |
+| `C hello, dynamic` | 2.2 ± 0.7 | 1.1 | 3.5 | 1.09 ± 0.46 |
+| `Rust hello` | 2.3 ± 0.6 | 1.6 | 3.8 | 1.14 ± 0.45 |
+| `Go hello, CGO_ENABLED=0` | 2.5 ± 0.2 | 2.1 | 3.7 | 1.22 ± 0.35 |
+| `Go hello, CGO_ENABLED=1` | 2.8 ± 0.6 | 2.0 | 5.9 | 1.36 ± 0.47 |
+| `Go hello, -ldflags=-s -w` | 2.9 ± 0.7 | 1.8 | 5.7 | 1.44 ± 0.52 |
+| `Go + net/http + encoding/xml + text/template` | 5.2 ± 0.7 | 3.7 | 8.3 | 2.55 ± 0.79 |
 
-The macOS dynamic rows from an earlier run of the same probes
-([34728086460](https://github.com/wow-look-at-my/api-cache/actions/runs/34728086460))
-are in [`gha/startup-floor-macos-arm64/`](gha/startup-floor-macos-arm64/) where
-that artifact was captured; the macOS runner queue did not deliver the leg in
-the runs used for the tables above, so no macOS figures are quoted here as
-reported numbers.
+### What macOS says
+
+**1. The floor sits between Linux and Windows, nearer Windows.** A dynamic C
+hello is 2.2 ms here against 0.65 ms on Linux and 6.0 ms on Windows.
+
+**2. The spread is wide and the error bars are large.** ±0.6-0.7 ms on 2 ms
+means these rows overlap heavily. Treat the C, C++ and Rust rows as
+indistinguishable from each other, and the Go hello rows as indistinguishable
+from those. The macOS runners have 3 cores and are visibly noisier than the
+Linux ones; the only separations this table actually supports are the big ones.
+
+**3. The one clear separation is the import set.** `Go + net/http + xml +
+template` at 5.2 ms is **2.55x** the C floor and more than double Go hello's
+2.5 ms, well outside the error bars. **Adding those three imports costs about
+2.7 ms per exec on macOS**, against 0.22 ms on Linux — the same shape as
+Windows, and the largest single lever on this platform.
+
+**4. `<iostream>` is free again.** C++ with iostream is nominally the fastest
+row. As on Windows, whatever the C++ standard library costs to initialize
+disappears under the platform's process-creation cost.
+
+**5. Statically linking is not an option here, and that matters for the
+design.** Any plan whose startup number depends on static linking does not have
+that number on macOS: the Linux tables show static C at 451 µs and dynamic C at
+652 µs, and macOS only ever gets the second kind.
 
 ## Windows x64 (`windows-latest`), run [34728713242](https://github.com/wow-look-at-my/api-cache/actions/runs/34728713242)
 
