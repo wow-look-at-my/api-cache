@@ -1,0 +1,29 @@
+A SECOND run of the identical probe suite, on the same three runner labels.
+
+Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34729790831
+Commit: 67247320a7ab1812d943808c50cfd7c838d7790a
+
+It exists for two reasons.
+
+1. It is the first run that carries a CORRECT clonefile(2) probe. The earlier
+   restore_darwin_test.go called syscall.Syscall(462, ...) and got EINVAL from
+   macOS's deprecated generic syscall(2) shim, which looks like "APFS refuses
+   to clone" and is not. This run calls the libSystem symbol through
+   golang.org/x/sys/unix.Clonefile and reports BOTH results. The verdict is
+   SUPPORTED. See macos-latest/tables.txt and BenchmarkRestoreClonefile.
+
+2. It is the measurement of how much a GitHub Actions number moves between two
+   runs of the same code, minutes apart. Against run 34729381343, whose
+   artifacts are the ones the prose quotes:
+
+     ubuntu   every figure within +-2.2%
+     windows  os.Stat -13.4%, open+close -7.5%, container reads +2..6%
+     macos    read-one-container +36.1%, stat-miss -9.3%, 5 MiB copy +90%
+
+   So a single CI figure here is good to roughly a factor of 1.1 on Linux and
+   1.4 on the two shared-tenancy runners. Every conclusion drawn in the
+   findings turns on a ratio of 1.5x or more, which is why they survive this
+   spread -- but no figure below should be quoted to three significant digits.
+
+The quoted set stays ci-results-<runner>-latest/ (run 34729381343), because a
+cross-platform comparison has to come from one run.
