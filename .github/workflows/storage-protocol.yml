@@ -1,0 +1,96 @@
+name: storage-protocol
+
+# Benchmarks for the storage-protocol research worker. The sandbox the probes
+# were written in runs many workers at once, so every number that gets quoted
+# comes from here instead.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/storage-protocol*.yml'
+      - 'plan/research/storage-protocol/**'
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: bench (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # binpazer lives in its own repository. The probe module carries a local
+      # replace for development; rewrite it to the checkout here. If the
+      # checkout is not permitted, the binpazer step is skipped rather than
+      # failing the whole matrix leg.
+      - name: check out bin-file-fmt
+        id: binfmt
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: wow-look-at-my/bin-file-fmt
+          path: refs/bin-file-fmt
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: false
+
+      - name: environment
+        working-directory: plan/research/storage-protocol/probes
+        run: |
+          go version
+          go env GOOS GOARCH
+          gcc --version | head -1 || true
+          g++ --version | head -1 || true
+
+      - name: build the corpus
+        id: corpus
+        continue-on-error: true
+        working-directory: plan/research/storage-protocol/probes
+        run: ./gen-testdata.sh
+
+      - name: point the binpazer probe at the checkout
+        if: steps.binfmt.outcome == 'success'
+        working-directory: plan/research/storage-protocol/probes/binpazer
+        run: |
+          go mod edit -replace github.com/wow-look-at-my/bin-file-fmt/go="$GITHUB_WORKSPACE/refs/bin-file-fmt/go"
+          go mod tidy
+
+      - name: run the probes
+        working-directory: plan/research/storage-protocol/probes
+        env:
+          RESULTS_DIR: ci-results
+          BENCHTIME: 2s
+          GOFLAGS: -mod=mod
+        run: |
+          if [ "${{ steps.binfmt.outcome }}" != "success" ]; then
+            echo "bin-file-fmt checkout unavailable; skipping the binpazer probe" > /tmp/no-binpazer
+            mv binpazer binpazer.skip
+          fi
+          ./run.sh
+
+      - name: summarise
+        working-directory: plan/research/storage-protocol/probes
+        run: |
+          go run ./cmd/benchreport \
+            -label "${{ matrix.os }}" \
+            -run "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -dir ci-results > ci-results/summary.md
+          cat ci-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: storage-protocol-${{ matrix.os }}
+          path: plan/research/storage-protocol/probes/ci-results/
+          if-no-files-found: warn

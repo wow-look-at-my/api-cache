@@ -1,8 +1,8 @@
 # api-cli — the consumer vocabulary, as built
 
 Module `github.com/wow-look-at-my/api-cli`, Go 1.26, MIT (`/home/user/api-cli/LICENSE:1`).
-Package `main` — the whole CLI is one flat package, ~5,000 non-test lines, plus the importable
-`fields/` sub-package.
+Package `main` — the whole CLI is one flat package: **27 non-test source files, 8,767 lines**, plus
+the importable `fields/` sub-package (5 files, 1,064 lines).
 
 Key dependency licenses (from go.mod, `/home/user/api-cli/go.mod`):
 cobra Apache-2.0, sprig/v3 MIT, gojq MIT, testify MIT, `golang.org/x/term`/`x/text` BSD-3-Clause,
@@ -531,6 +531,6 @@ The `where` string is built up positionally as the walk descends: `commands[0].s
 
 ## 17. Line budget
 
-go-toolchain warns at 500 lines and **fails at 750** (CLAUDE.md). That is why the package is 25 flat
+go-toolchain warns at 500 lines and **fails at 750** (CLAUDE.md). That is why the package is 27 flat
 files rather than 6 big ones, and why `transport.go`, `join.go`, `xmlrequest.go` and `runnable.go`
 exist as topical splits rather than living inside `xmlsource.go`/`config.go`.

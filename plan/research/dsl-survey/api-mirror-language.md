@@ -1,7 +1,7 @@
 # api-mirror — the second consumer, and the design patterns worth copying
 
 Module `github.com/wow-look-at-my/api-mirror`, Go 1.26, MIT (`/home/user/api-mirror/LICENSE:1`).
-The engine is one package, `internal/mirror` (~70 source files); `cmd/api-mirror` holds nothing else.
+The engine is one package, `internal/mirror` (**45 non-test source files, 9,591 lines**); `cmd/api-mirror` holds nothing else.
 Dependencies: api-dsl, testify, `go-containers`, `modernc.org/sqlite` (pure-Go SQLite, BSD-3-Clause).
 **No cobra, no sprig beyond what api-dsl pulls in, no third-party router.**
 

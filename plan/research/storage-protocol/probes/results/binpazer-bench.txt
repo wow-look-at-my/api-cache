@@ -12,3 +12,13 @@ BenchmarkBinpazerReadAll/stored-4           	     409	   1736374 ns/op	 333.90 M
 BenchmarkBinpazerReadAll/stored+crc-4       	     321	   1766780 ns/op	 328.15 MB/s	 2855708 B/op	     120 allocs/op
 BenchmarkBinpazerReadAll/zstd-4             	     139	   4559972 ns/op	 127.14 MB/s	14301096 B/op	     307 allocs/op
 BenchmarkBinpazerReadAll/lz4-4              	     441	   1281927 ns/op	 452.27 MB/s	 3219409 B/op	     149 allocs/op
+BenchmarkBinpazerReadOne/stored-4           	     356	   1556152 ns/op	 339.20 MB/s	 2605535 B/op	      82 allocs/op
+BenchmarkBinpazerReadOne/stored+crc-4       	     360	   1649360 ns/op	 320.03 MB/s	 2605536 B/op	      82 allocs/op
+BenchmarkBinpazerReadOne/zstd-4             	     152	   3966231 ns/op	 133.08 MB/s	13729151 B/op	     144 allocs/op
+BenchmarkBinpazerReadOne/lz4-4              	     526	   1123604 ns/op	 469.77 MB/s	 2941149 B/op	      90 allocs/op
+BenchmarkBinpazerReadOne/sized/stored-4     	    1687	    459734 ns/op	1148.14 MB/s	  600274 B/op	      59 allocs/op
+BenchmarkBinpazerReadOne/sized/zstd-4       	     184	   3108581 ns/op	 169.80 MB/s	11722291 B/op	     119 allocs/op
+BenchmarkBinpazerReadOne/sized/lz4-4        	     254	   2089397 ns/op	 252.63 MB/s	 8956878 B/op	      69 allocs/op
+BenchmarkBinpazerReadOne/stored/file-4      	     410	   1576232 ns/op	 334.87 MB/s	 2605485 B/op	      81 allocs/op
+PASS
+ok  	apicache/probes/binpazer	10.981s
