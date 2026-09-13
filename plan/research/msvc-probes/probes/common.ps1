@@ -149,6 +149,20 @@ function Invoke-Probe {
         [System.Environment]::SetEnvironmentVariable($k, $EnvVars[$k])
     }
 
+    # VS_UNICODE_OUTPUT makes cl.exe send ALL of its console output to an IDE
+    # pipe instead of to stdout/stderr, so a probe running under it captures
+    # nothing at all -- not even the source-name line. Family p08 sets it
+    # deliberately, and in run 3 it survived past those probes: p08's own
+    # `error-path-baseline` (which sets no environment) and every compile in
+    # p09 came back 0 bytes / 0 bytes, which made the whole p09 diagnostics
+    # family unusable. Every probe therefore starts from a KNOWN-CLEARED
+    # VS_UNICODE_OUTPUT unless it is the probe under test, so no family can be
+    # contaminated by an earlier one regardless of how the value got there.
+    if (-not $EnvVars.ContainsKey('VS_UNICODE_OUTPUT')) {
+        $saved['VS_UNICODE_OUTPUT'] = [System.Environment]::GetEnvironmentVariable('VS_UNICODE_OUTPUT')
+        [System.Environment]::SetEnvironmentVariable('VS_UNICODE_OUTPUT', $null)
+    }
+
     $display = "$Exe " + ($CmdArgs -join ' ')
     Set-Content -Path $cmdFile -Value $display -Encoding utf8
 

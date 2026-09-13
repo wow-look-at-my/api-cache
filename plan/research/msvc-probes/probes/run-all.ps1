@@ -73,6 +73,9 @@ foreach ($f in $families) {
     Write-Host ''
     Write-Host "================ FAMILY START $f ================"
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    # Belt and braces against the run-3 contamination: no family may start
+    # under a VS_UNICODE_OUTPUT left behind by the previous one.
+    [System.Environment]::SetEnvironmentVariable('VS_UNICODE_OUTPUT', $null)
     try {
         & $path
         Write-Host "================ FAMILY END $f ok ($([int]$sw.Elapsed.TotalSeconds)s) ================"
