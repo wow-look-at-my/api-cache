@@ -181,7 +181,7 @@ function Add-DirListing {
 function Add-HexDump {
     param([byte[]]$Bytes, [string]$Caption = 'hex dump', [int]$Max = 512)
     if ($null -eq $Bytes -or $Bytes.Length -eq 0) {
-        Add-Content -Path $script:Log -Value @("$Caption: (empty)", '') -Encoding utf8
+        Add-Content -Path $script:Log -Value @("${Caption}: (empty)", '') -Encoding utf8
         return
     }
     $n = [Math]::Min($Bytes.Length, $Max)
