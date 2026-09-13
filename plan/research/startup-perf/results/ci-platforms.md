@@ -68,47 +68,72 @@ that artifact was captured; the macOS runner queue did not deliver the leg in
 the runs used for the tables above, so no macOS figures are quoted here as
 reported numbers.
 
-## Windows x64 (`windows-latest`)
+## Windows x64 (`windows-latest`), run [34728713242](https://github.com/wow-look-at-my/api-cache/actions/runs/34728713242)
 
-Windows spells the question `/MT` (static CRT, linked into the exe) versus
-`/MD` (the CRT as a DLL). Both are built with MSVC, located through `vswhere`
-and `VsDevCmd.bat` rather than a third-party action.
+MSVC 19.51.36256, located through `vswhere` and `VsDevCmd.bat` rather than a
+third-party action. `/MT` links the CRT into the exe; `/MD` uses the CRT DLL.
 
-**The Windows leg has not yet produced a table.** The first attempt failed at
-checkout (a sibling worker's file name held a backslash, which Windows git
-refuses for the whole index). The second got past checkout and built every
-target — the binary sizes came back — but every hyperfine benchmark died with
-`program not found`:
+**Note the unit. This table is in MILLISECONDS; the Linux tables are in
+microseconds.**
 
-    Benchmark 1: C hello, MSVC /MD (shared CRT)
-    Error: Failed to run command 'D:\a\api-cache\api-cache\out\c-dyn.exe': program not found
+| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |
+|:---|---:|---:|---:|---:|
+| `C++ iostream, MSVC /MT (static CRT)` | 5.2 ± 0.2 | 5.0 | 6.5 | 1.00 |
+| `C hello, MSVC /MT (static CRT)` | 5.2 ± 0.3 | 5.0 | 6.6 | 1.00 ± 0.06 |
+| `Rust hello` | 5.7 ± 0.5 | 5.3 | 9.5 | 1.10 ± 0.10 |
+| `C hello, MSVC /MD (shared CRT)` | 6.0 ± 0.6 | 5.4 | 8.4 | 1.14 ± 0.11 |
+| `C++ iostream, MSVC /MD (shared CRT)` | 6.2 ± 0.3 | 5.8 | 8.6 | 1.18 ± 0.08 |
+| `Go hello, CGO_ENABLED=0` | 7.3 ± 0.3 | 6.9 | 8.4 | 1.39 ± 0.07 |
+| `Go hello, -ldflags=-s -w` | 7.3 ± 0.3 | 6.9 | 8.6 | 1.39 ± 0.08 |
+| `Go hello, CGO_ENABLED=1` | 7.3 ± 0.4 | 7.0 | 9.8 | 1.40 ± 0.09 |
+| `Go + net/http + encoding/xml + text/template` | 9.5 ± 0.5 | 9.0 | 12.8 | 1.82 ± 0.12 |
 
-The cause is that under `--shell=none` hyperfine splits each command with
-shell-words rules, in which a backslash is an escape character, so the Windows
-path arrives with its separators eaten. The fix (forward slashes, which Windows
-accepts) is in `probes/ci/run-windows.ps1`.
+### Windows is a different problem from Linux
 
-That attempt is also the reason this research now asserts a non-empty table
-with the expected row count rather than merely a file that exists: **hyperfine
-creates its export file before it runs, so the job went green with an empty
-table and a complete-looking binary-size section.** That is exactly the kind of
-partial result that gets copied into a document and read as an answer.
+**1. Process creation costs about ten times more.** The cheapest thing any
+platform here can do is start a static C program: **451 µs on Linux x64,
+5,200 µs on Windows.** `CreateProcess` is not `fork` plus `execve`, and on a
+build that execs a wrapper 10,000 times that floor alone is **52 seconds on
+Windows against 4.5 seconds on Linux**, before the wrapper does anything.
 
-Binary sizes from that run, which did build correctly:
+**2. Because of that, the language choice matters much less.** Go is 2.31x the
+C static floor on Linux and only **1.39x** on Windows. The Go runtime's
+bring-up has not got cheaper; it is being measured against a floor five times
+taller, so it is a smaller fraction of it. The absolute Go tax is about 2.1 ms
+on Windows against about 0.59 ms on Linux, so it did not shrink either — the
+whole picture just moved up.
 
-| binary | bytes |
-|---|---|
-| c-dyn.exe (`/MD`) | 9,728 |
-| c-static.exe (`/MT`) | 110,592 |
-| cpp-dyn.exe (`/MD`) | 11,776 |
-| cpp-static.exe (`/MT`) | 215,040 |
-| go-hello-nocgo.exe | 1,985,536 |
-| go-hello-cgo.exe | 1,986,048 |
-| go-hello-sw.exe | 1,314,816 |
-| go-imports.exe | 5,303,296 |
-| rust-hello.exe | 131,072 |
+**3. `/MT` beats `/MD`, by less than static beats dynamic on Linux.** 5.2 ms
+against 6.0 ms in C, a 13% saving, where Linux's static-versus-dynamic gap is
+31%. The CRT DLL is usually already resident and mapped on Windows, which is
+exactly the thing `ld.so` has to redo per exec on Linux.
 
-Sizes are not timings and nothing should be inferred from them about startup —
-the Linux tables show a 1.22 MB and a 1.89 MB Go binary starting in the same
-time. They are recorded because the build half of the Windows job is known
-good, which narrows what remains to be fixed.
+**4. `<iostream>` is nearly free on Windows.** C++ with iostream costs the same
+as C at `/MT` (5.2 ms both) and 0.2 ms more at `/MD`. On Linux the same code
+costs 1.26x statically and **2.56x** dynamically. Whatever the C++ standard
+library costs to initialize, on Windows it disappears under `CreateProcess`.
+
+**5. The import cost is the one thing that got dramatically worse.** Adding
+net/http, encoding/xml and text/template costs **2.2 ms** on Windows against
+**0.22 ms** on Linux — ten times as much, and a quarter of the total exec.
+That is the largest single lever visible in the Windows column, and it is one a
+Go implementation controls directly by not importing what it does not use.
+
+**6. Rust is closer to C here than on Linux.** 1.10x the C floor against 1.81x
+on Linux, for the same reason as everything else in this table.
+
+### What was fixed to get this table
+
+The first Windows attempt failed at checkout: a sibling worker's file name held
+a backslash, which Windows git refuses for the whole index. The second got past
+checkout and built every target, but every benchmark died with
+`program not found`, because under `--shell=none` hyperfine splits each command
+with shell-words rules, in which a backslash is an escape character, so
+`D:\a\repo\out\c-dyn.exe` arrived as `D:arepooutc-dyn.exe`. Forward slashes,
+which Windows accepts, fix it.
+
+**That second attempt went green with an empty table**, because hyperfine
+creates its export file before it runs, so a `Test-Path` check passed. The job
+now asserts a non-empty table with at least one row per target, on both the
+Windows and the unix side. A partial result that looks complete is worse than a
+failure, because it gets copied into a document and read as an answer.
