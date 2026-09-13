@@ -52,6 +52,8 @@ func TestMetaEntryRealOverhead(t *testing.T) {
 	runtime.GC()
 	runtime.ReadMemStats(&after)
 	shared := int64(after.HeapAlloc-before.HeapAlloc) / n
+	runtime.KeepAlive(c)
+	c = nil
 
 	// Now with per-entry fresh copies of every attribute string, which is what
 	// the server actually holds: getMetadata builds a new map per read.
@@ -68,6 +70,7 @@ func TestMetaEntryRealOverhead(t *testing.T) {
 	runtime.GC()
 	runtime.ReadMemStats(&after)
 	fresh := int64(after.HeapAlloc-before.HeapAlloc) / n
+	runtime.KeepAlive(c2)
 
 	t.Logf("entries: %d", n)
 	t.Logf("payload bytes per entry (key + attribute strings): %d", payload)
@@ -78,6 +81,4 @@ func TestMetaEntryRealOverhead(t *testing.T) {
 	t.Logf("measured heap per entry, attribute strings fresh copies: %d bytes (the server's case)", fresh)
 	t.Logf("real overhead beyond payload: %d bytes (fresh), %d bytes (shared)", fresh-int64(payload), shared-int64(payload))
 	t.Logf("32 MiB default budget holds ~%d entries by the estimate, ~%d by the real cost", (32<<20)/(estimate/n), (32<<20)/fresh)
-	_ = c
-	_ = c2
 }

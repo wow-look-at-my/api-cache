@@ -1,8 +1,8 @@
-    overhead_test.go:72: entries: 200000
-    overhead_test.go:73: payload bytes per entry (key + attribute strings): 375
-    overhead_test.go:74: sizeof: lruEntry=64 list.Element=40 metaEntry=40 kvPair=32 map bucket amortized ~0
-    overhead_test.go:76: estimate (metaEntrySize) per entry: 855 bytes
-    overhead_test.go:77: measured heap per entry, attribute strings shared:      0 bytes
-    overhead_test.go:78: measured heap per entry, attribute strings fresh copies: -95 bytes (the server's case)
-    overhead_test.go:79: real overhead beyond payload: -470 bytes (fresh), -375 bytes (shared)
-    overhead_test.go:80: 32 MiB default budget holds ~39244 entries by the estimate, ~-353204 by the real cost
+    overhead_test.go:75: entries: 200000
+    overhead_test.go:76: payload bytes per entry (key + attribute strings): 375
+    overhead_test.go:77: sizeof: lruEntry=64 list.Element=40 metaEntry=40 kvPair=32 map bucket amortized ~0
+    overhead_test.go:79: estimate (metaEntrySize) per entry: 855 bytes
+    overhead_test.go:80: measured heap per entry, attribute strings shared:      466 bytes
+    overhead_test.go:81: measured heap per entry, attribute strings fresh copies: 819 bytes (the server's case)
+    overhead_test.go:82: real overhead beyond payload: 444 bytes (fresh), 91 bytes (shared)
+    overhead_test.go:83: 32 MiB default budget holds ~39244 entries by the estimate, ~40970 by the real cost
