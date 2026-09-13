@@ -18,20 +18,20 @@ body to a remote — against six criteria:
 6. **Streaming over HTTP.** Can a writer produce it without knowing the total
    length, and can a reader consume it without seeking?
 
-Measured numbers are labelled by where they come from. **`[ci] ubuntu`** and
-**`[ci] windows`** are from a GitHub Actions run on AMD EPYC 7763 (4 vCPU,
-`sha_ni`, `avx2`), ext4 and NTFS respectively, Go 1.26.8, `-benchtime 2s`;
-raw files in `probes/ci-results-ubuntu-latest/` and
-`probes/ci-results-windows-latest/`, run
-<https://github.com/wow-look-at-my/api-cache/actions/runs/34728376981>.
-**`[sandbox]`** is the development VM (Intel Xeon @2.8 GHz, no `sha_ni`), which
-runs many agents at once and is noisy; it is kept only where it adds contrast.
+Measured numbers are labelled by where they come from. **`[ci] ubuntu`**,
+**`[ci] windows`** and **`[ci] macos`** are all from one GitHub Actions run,
+<https://github.com/wow-look-at-my/api-cache/actions/runs/34729381343>
+(commit `241bdc50`, `-benchtime 2s`): AMD EPYC 7763 on ext4 and on NTFS, and an
+**Apple M1 (Virtual), arm64, on APFS**. Raw files in
+`probes/ci-results-<runner>/`. **`[sandbox]`** is the development VM (Intel
+Xeon @2.8 GHz, no `sha_ni`), which runs many agents at once and is noisy; it is
+kept only where it adds contrast.
 
-The three environments use *slightly different corpora*, because each runner's
+The environments use *slightly different corpora*, because each runner's
 compiler emits different DWARF: `mid.o` is 527,880 B from GCC on the Linux
-runner and 343,092 B from MinGW g++ on Windows. Absolute byte counts therefore
-differ between the tables below; the ratios and the relative timings are what
-transfer.
+runner, 343,092 B from MinGW g++ on Windows and 243,888 B from Apple clang on
+macOS. Absolute byte counts therefore differ between the tables below; the
+ratios and the relative timings are what transfer.
 
 ## The candidates
 
@@ -182,10 +182,19 @@ coverage notes — 579,824 bytes of members on the Linux runner.
 | tar + `manifest.json` | 584,704 | +4,880 | 0.842% |
 
 The overhead is a fixed number of bytes per member, so it grows as a *fraction*
-when the entry is small. `[ci] windows`, whose MinGW objects are smaller
-(397,650 B of members), shows the same absolute overheads at 0.018% / 0.113% /
-0.945% / 1.203% — and on a 14 KiB entry with a 10 KiB object, tar's ~3.8 KiB of
-framing is about a quarter of the file.
+when the entry is small. The other two runners confirm it, with smaller members:
+
+| | raw members | ACE1 | binpazer stored | zip stored | tar | tar + manifest |
+|---|--:|--:|--:|--:|--:|--:|
+| `[ci] ubuntu` | 579,824 | +72 | +576 | +450 | +3,856 | +4,880 |
+| `[ci] windows` | 397,650 | +72 | +582 | +450 | +3,758 | +4,782 |
+| `[ci] macos` | 403,468 | +72 | +580 | +450 | +4,084 | +5,108 |
+
+ACE1, binpazer and zip are within a handful of bytes of constant, exactly as a
+fixed header plus a per-member record should be. **tar is the one that moves**
+(+3,758 to +4,084), because its cost is 512-byte *rounding* per member and so
+it depends on where each member's length falls. On a 14 KiB entry with a 10 KiB
+object, tar's ~3.9 KiB of framing is about a quarter of the file.
 
 tar's 512-byte header and 512-byte padding per member is 6–54× the others, and
 that is the one framing number in the table that is not negligible.
@@ -222,30 +231,31 @@ The hostile ordering, so a format with no index pays its worst case.
 
 | format | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|
-| ACE1, from an in-memory blob (subslice) | **1.87** | 0 | 0 |
-| ACE1, two `pread`s from a file | 64,321 | 532,609 | 2 |
-| ACE1, two `pread`s (parent module, separate temp dir) | 97,784 | 532,481 | 1 |
-| tar, header walk | 140,539 | 535,755 | 56 |
-| binpazer, stored, sized read | **203,022** | 600,272 | 59 |
-| binpazer, stored, from a real file | 240,420 | 1,140,640 | 79 |
-| binpazer, stored, `io.ReadAll` | 464,247 | 1,140,691 | 80 |
-| binpazer, lz4, sized read | 870,666 | 8,988,402 | 68 |
-| binpazer, zstd, sized read | 1,793,050 | 11,722,224 | 119 |
-| zip, central directory | 410,268 | 1,079,869 | 55 |
+| ACE1, from an in-memory blob (subslice) | **1.89** | 0 | 0 |
+| ACE1, two `pread`s from a file | 59,540 | 532,609 | 2 |
+| ACE1, two `pread`s (parent module, separate temp dir) | 83,768 | 532,481 | 1 |
+| tar, header walk | 140,597 | 535,628 | 56 |
+| binpazer, stored, sized read | **187,139** | 600,273 | 59 |
+| binpazer, stored, from a real file | 318,236 | 1,140,642 | 79 |
+| binpazer, stored, `io.ReadAll` | 331,797 | 1,140,695 | 80 |
+| binpazer, lz4, sized read | 852,091 | 8,988,330 | 68 |
+| binpazer, zstd, sized read | 2,063,007 | 11,722,558 | 119 |
+| zip, central directory | 412,634 | 1,079,869 | 55 |
 
-`[ci] windows`, same code, NTFS, smaller corpus (343 KB object):
+The same four formats on the other two runners, smaller corpora:
 
-| format | ns/op | B/op |
+| format | `[ci] windows` | `[ci] macos` |
 |---|--:|--:|
-| ACE1, in-memory subslice | 1.91 | 0 |
-| ACE1, two `pread`s from a file | 84,786 | 344,250 |
-| tar, header walk | 94,763 | 346,623 |
-| zip, central directory | 219,417 | 718,519 |
+| ACE1, in-memory subslice | 1.90 | 2.25 |
+| ACE1, two `pread`s from a file | 53,273 | 46,597 |
+| tar, header walk | 74,224 | 61,732 |
+| binpazer, stored, sized read | 123,801 | **71,433** |
+| zip, central directory | 196,184 | 150,182 |
 
 `[sandbox]`, for contrast: ACE1/pread 151,810; tar/scan 330,695;
 binpazer sized 283,946; zip 737,160.
 
-Three readings of this table.
+Four readings of this table.
 
 **The 2.2 ns row is the real point about a fixed-width table**, not a fair
 comparison: it is a subslice of an already-mapped blob. If the entry is
@@ -254,28 +264,42 @@ too — extracting a member is address arithmetic and the only cost left is the
 copy into the destination file. That is the ceiling every other row is
 measured against.
 
-**binpazer's read path costs about 3× ACE1's and 1.4× tar's** on the CI Linux
-runner (203 µs vs 64 µs vs 141 µs), and the gap is structural rather than
+**binpazer's read path costs about 3× ACE1's and 1.3× tar's** on the CI Linux
+runner (187 µs vs 60 µs vs 141 µs), and the gap is structural rather than
 implementation slop: footer read, index read, directory block read, JSON
 unmarshal of the directory, then the member. ACE1 folds the directory into a
 fixed-width table in the header, so the same information is one `pread`.
 
-The right way to read that is against what happens next: writing the object
-back out costs **1,277 µs** on the same machine (`local-layout.md`). So every
-row above except the compressed ones is under 16% of the restore it precedes,
-and the format choice is not the bottleneck. The **allocation counts** are the
-number worth watching — 59–119 allocations per lookup against ACE1's 1–2, at
-4,000 lookups per build.
+**But that multiple is a property of the machine, not of the format**, which is
+the thing the third runner added:
 
-**`io.ReadAll` versus a sized read is a 56% difference** (464 µs → 203 µs,
+| | binpazer sized ÷ ACE1 pread | binpazer sized ÷ tar scan |
+|---|--:|--:|
+| `[ci] ubuntu` | 3.14× | 1.33× |
+| `[ci] windows` | 2.32× | 1.67× |
+| `[ci] macos` | **1.53×** | **1.16×** |
+
+On the M1, binpazer's extra reads and its JSON directory unmarshal cost
+25 µs over ACE1 rather than ubuntu's 128 µs. The overhead is CPU work plus
+small reads, and both are cheaper there. So "binpazer is 3× the framing cost"
+is the *worst* of the three measurements, not the typical one.
+
+The right way to read all of it is against what happens next: writing the
+object back out costs **1,266 µs** on the ubuntu runner (`local-layout.md`). So
+every row above except the compressed ones is under 15% of the restore it
+precedes, and the format choice is not the bottleneck. The **allocation counts**
+are the number worth watching — 59–119 allocations per lookup against ACE1's
+1–2, at 4,000 lookups per build.
+
+**`io.ReadAll` versus a sized read is a 77% difference** (332 µs → 187 µs,
 1.14 MB → 600 KB). The directory already carries the decoded size, so a real
 implementation sizes the buffer exactly. Worth stating because the obvious
 first cut uses `ReadAll`.
 
-**The compressed rows are not measuring the format.** binpazer/zstd at 1,793 µs
-and 11.7 MB per lookup, and binpazer/lz4 at 871 µs and 9.0 MB, are dominated by
+**The compressed rows are not measuring the format.** binpazer/zstd at 2,063 µs
+and 11.7 MB per lookup, and binpazer/lz4 at 852 µs and 9.0 MB, are dominated by
 constructing a fresh streaming codec per block — see "the codec layer is where
-the time goes" below. The same 528 KB decodes in 705 µs with 59 B of allocation
+the time goes" below. The same 528 KB decodes in 715 µs with 60 B of allocation
 through a pooled `zstd.DecodeAll`.
 
 ### Pack and unpack everything
@@ -284,25 +308,28 @@ through a pooled `zstd.DecodeAll`.
 
 | format | pack ns/op | unpack-all ns/op | unpack B/op |
 |---|--:|--:|--:|
-| ACE1 | 210,353 | **54** | 96 |
-| tar | 423,696 | 124,201 | 588,023 |
-| tar + `manifest.json` | 423,974 | — | — |
-| zip (stored) | 574,773 | 305,091 | 1,198,089 |
-| binpazer, stored | 292,853 | 444,255 | 1,258,313 |
-| binpazer, stored + CRC | 341,462 | 428,105 | 1,258,314 |
-| binpazer, lz4 | 2,196,127 | 528,358 | 1,469,769 |
-| binpazer, zstd | 6,329,890 | 2,002,478 | 12,693,329 |
+| ACE1 | 236,869 | **52** | 96 |
+| tar | 450,690 | 133,388 | 588,054 |
+| tar + `manifest.json` | 480,661 | — | — |
+| zip (stored) | 529,665 | 309,290 | 1,198,089 |
+| binpazer, stored | 361,144 | 361,050 | 1,258,315 |
+| binpazer, stored + CRC | 402,277 | 363,545 | 1,258,314 |
+| binpazer, lz4 | 2,110,125 | 502,655 | 1,457,634 |
+| binpazer, zstd | 5,845,554 | 1,679,559 | 12,689,950 |
 
-ACE1's 54 ns unpack is again the zero-copy subslice: it returns views, not
+ACE1's 52 ns unpack is again the zero-copy subslice: it returns views, not
 copies. Everything else copies. Its pack is also the fastest of the four
-uncompressed formats (210 µs vs tar's 424 µs and zip's 575 µs), because it is
+uncompressed formats (237 µs vs tar's 451 µs and zip's 530 µs), because it is
 one table write and N `copy`s.
 
-**Per-block CRC costs ~17% on pack** (293 µs → 341 µs `[ci]`; 622 → 834 µs on
-the noisier sandbox) and is **free on unpack** (428 µs vs 444 µs — within
-noise). CRC-32C over 580 KB is 23 µs at the measured 23 GB/s, so the pack
-difference is mostly the extra pass over the buffer rather than the polynomial.
-Cheap enough to be default-on.
+**Per-block CRC costs ~11% on pack** (361 µs → 402 µs `[ci] ubuntu`; 177 →
+162 µs on Windows and 222 → 282 µs on macOS, so it is inside the run-to-run
+spread on two of three runners) and is **free on unpack** (364 µs against
+361 µs — within noise; on macOS the CRC variant measured *faster*, 131 µs
+against 161 µs, which says the same thing). CRC-32C over 580 KB is 23 µs at
+x86's 23 GB/s and 67 µs at the M1's 7.2 GB/s, so the pack difference is mostly
+the extra pass over the buffer rather than the polynomial. **Cheap enough to be
+default-on, on every platform measured.**
 
 ### The codec layer is where the time goes
 
@@ -311,21 +338,26 @@ binpazer's `Codec` interface is stream-shaped: `NewReader(io.Reader)` and
 
 | | ns/op | B/op |
 |---|--:|--:|
-| `zstd.NewReader` construction (concurrency 1) | 478 | 1,304 |
-| `zstd.NewReader` construction (default concurrency) | 1,169 | 3,776 |
-| `lz4.NewReader` construction | 117 | 304 |
-| zstd decode 528 KB, `DecodeAll`, pooled decoder | **704,893** | **59** |
-| zstd decode 528 KB, fresh reader, streamed | 823,010 | 1,311,210 |
-| lz4 decode 528 KB, fresh reader, streamed | 994,114 | **8,386,923** |
-| lz4 decode 528 KB, reader reused with `Reset` | **328,417** | 1,350 |
+| `zstd.NewReader` construction (concurrency 1) | 481 | 1,304 |
+| `zstd.NewReader` construction (default concurrency) | 1,183 | 3,776 |
+| `lz4.NewReader` construction | 118 | 304 |
+| zstd decode 528 KB, `DecodeAll`, pooled decoder | **714,547** | **60** |
+| zstd decode 528 KB, fresh reader, streamed | 828,292 | 1,311,210 |
+| lz4 decode 528 KB, fresh reader, streamed | 750,358 | **8,387,196** |
+| lz4 decode 528 KB, reader reused with `Reset` | **280,528** | 1,179 |
 
-Construction is cheap (117–478 ns); the **first read** is not. `pierrec/lz4`'s
+Construction is cheap (118–481 ns); the **first read** is not. `pierrec/lz4`'s
 reader allocates its block buffers lazily and a fresh reader per member costs
-**8.4 MB of allocation** and 3× the time of a reused one. This is why
+**8.4 MB of allocation** and 2.7× the time of a reused one. This is why
 `BenchmarkBinpazerReadOne/sized/lz4` shows 9 MB/op: it is not binpazer's
 framing, it is one `lz4.NewReader` per block. The pooled one-shot zstd path is
-**12,000× cheaper in allocation** than the streaming one (59 B against 1.3 MB)
+**~22,000× cheaper in allocation** than the streaming one (60 B against 1.3 MB)
 for the same output.
+
+The 8.4 MB fresh-`lz4.NewReader` figure is **identical on all three runners**
+(8,387,196 / 8,387,593 / 8,387,356 B), which is what one expects from a fixed
+buffer allocation and is the strongest evidence in this document that the trap
+is the library's shape rather than any machine's behaviour.
 
 Any container with a stream-shaped codec layer needs pooled codec instances, or
 a one-shot `DecodeAll` path for the common case where the decoded size is
@@ -336,7 +368,8 @@ using it well means registering a codec whose reader is pooled — which
 ### The streaming gap
 
 `probes/binpazer` `TestBinpazerStreamingWriterLosesIndex`. Reproduced
-identically on `[ci] ubuntu`, `[ci] windows` and `[sandbox]`:
+identically on `[ci] ubuntu`, `[ci] windows`, `[ci] macos` and `[sandbox]` —
+same failure, same bogus length, on two ISAs and three filesystems:
 
 ```
 streamed file: len=145024 hasIndex=false

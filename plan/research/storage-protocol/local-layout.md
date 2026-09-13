@@ -11,14 +11,23 @@ outputs get back into the build tree**.
 > agents at once; they are noisy and are kept only where CI has not replaced
 > them yet.
 >
+> Every `[ci]` number below is from run
+> <https://github.com/wow-look-at-my/api-cache/actions/runs/34729381343>
+> (commit `241bdc50`, `-benchtime 2s`) unless it says otherwise.
+>
 > **`[ci] ubuntu-latest`** — AMD EPYC 7763 64-Core, 4 vCPU, **`sha_ni` and
-> `avx2` present**, ext4 on Azure premium storage, Go 1.26.8, `-benchtime 2s`.
-> Run: <https://github.com/wow-look-at-my/api-cache/actions/runs/34728376981>.
+> `avx2` present**, ext4 on Azure storage, gcc/g++, Go 1.26.8 linux/amd64.
 > Raw files in `probes/ci-results-ubuntu-latest/`.
 >
 > **`[ci] windows-latest`** — same AMD EPYC 7763 hardware, NTFS on `D:`,
-> MinGW g++, Go 1.26.8 windows/amd64, same run.
+> MinGW g++, Go 1.26.8 windows/amd64.
 > Raw files in `probes/ci-results-windows-latest/`.
+>
+> **`[ci] macos-latest`** — **Apple M1 (Virtual)**, 3 vCPU, **arm64**, APFS on
+> `/dev/disk2s5`, Apple clang through the `gcc`/`g++` shims, Go 1.26.8
+> darwin/arm64. Raw files in `probes/ci-results-macos-latest/`. Its corpus is
+> built by a different compiler, so **compare its ratios, never its byte
+> counts, against the other two**.
 >
 > **`[sandbox]`** — Intel Xeon @2.80GHz, 4 vCPU, **no `sha_ni`** (avx2,
 > avx512f, bmi2), ext4 on a local virtio disk, Go 1.26.0, Firecracker VM.
@@ -26,9 +35,11 @@ outputs get back into the build tree**.
 >
 > The machines differ in exactly the ways that make the comparison useful: the
 > CI Linux box has the SHA-256 instruction and slow storage, the sandbox has
-> fast storage and no SHA-256 instruction, and the Windows box is the same
-> silicon as the CI Linux box with a filesystem an order of magnitude slower
-> per syscall.
+> fast storage and no SHA-256 instruction, the Windows box is the same silicon
+> as the CI Linux box with a filesystem an order of magnitude slower per
+> syscall, and the macOS box is a different ISA with a copy-on-write filesystem
+> and a mandatory crypto extension. Three of the conclusions in this document
+> changed when the fourth machine was added.
 
 ## What a compiler-cache entry actually is
 
