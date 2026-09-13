@@ -143,10 +143,11 @@ reported as a stated verdict (`TestReflinkSupport`) rather than a silent skip.
 
 ## Open questions this worker did not settle
 
-- **macOS `clonefile`.** APFS is always copy-on-write and `clonefile(2)` should
-  make restore a metadata operation, but the probe here does not call it — the
-  Linux reflink path is `FICLONE` and macOS needs its own syscall. The
-  macos-latest job measures copy and hard-link restore only.
+- **macOS `clonefile`.** Probed by `probes/restore_darwin_test.go`
+  (`TestClonefileSupport` and `BenchmarkRestoreClonefile`, via `SYS_CLONEFILE`
+  = 462). APFS is copy-on-write throughout, so this is the one platform where a
+  clone restore should genuinely be available; the result is in
+  `probes/ci-results-macos-latest/`.
 - **Index size at scale.** go-s3-server's index is 32 B/key; a two-keyspace
   compiler cache (manifests and results) doubles that. A Bloom filter or
   prefix-sharded index is sketched in `consistency-and-safety.md` but not
