@@ -57,10 +57,42 @@ type resultDir struct {
 	Entries []dirEntry `json:"entries"`
 }
 
+// seekBuf is an in-memory io.Writer that is also an io.Seeker, which binpazer
+// needs: End back-patches file_length (and version_minor) at fixed offsets, and
+// a writer with no seeker leaves file_length at the streaming sentinel. A
+// reader then cannot locate the footer, so the Block Index is unreachable AND
+// the linear-walk fallback runs into the 16-byte footer and reports it as a
+// corrupt block. A plain bytes.Buffer is not enough. See container-format.md.
+type seekBuf struct {
+	b   []byte
+	pos int
+}
+
+func (s *seekBuf) Write(p []byte) (int, error) {
+	if need := s.pos + len(p); need > len(s.b) {
+		s.b = append(s.b, make([]byte, need-len(s.b))...)
+	}
+	copy(s.b[s.pos:], p)
+	s.pos += len(p)
+	return len(p), nil
+}
+
+func (s *seekBuf) Seek(off int64, whence int) (int64, error) {
+	switch whence {
+	case io.SeekStart:
+		s.pos = int(off)
+	case io.SeekCurrent:
+		s.pos += int(off)
+	case io.SeekEnd:
+		s.pos = len(s.b) + int(off)
+	}
+	return int64(s.pos), nil
+}
+
 // bpPack writes one result. flags decides CRC and compression per block.
 func bpPack(ms []member, codec uint16, crc bool) ([]byte, error) {
-	var buf bytes.Buffer
-	w, err := bp.NewWriterVersion(&buf, guidWriter, "api-cache", typeDefs, bp.VersionMinorCompression)
+	buf := &seekBuf{}
+	w, err := bp.NewWriterVersion(buf, guidWriter, "api-cache", typeDefs, bp.VersionMinorCompression)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +120,63 @@ func bpPack(ms []member, codec uint16, crc bool) ([]byte, error) {
 	if err := w.Finish(); err != nil {
 		return nil, err
 	}
+	return buf.b, nil
+}
+
+// bpPackStreaming is the same file written through a non-seekable writer, the
+// shape an HTTP upload takes. Kept so the gap is measured, not asserted.
+func bpPackStreaming(ms []member, codec uint16) ([]byte, error) {
+	var buf bytes.Buffer
+	w, err := bp.NewWriterVersion(&buf, guidWriter, "api-cache", typeDefs, bp.VersionMinorCompression)
+	if err != nil {
+		return nil, err
+	}
+	dir := resultDir{}
+	for _, m := range ms {
+		off, err := w.PutCompressed(tOutput, 0, codec, m.Data)
+		if err != nil {
+			return nil, err
+		}
+		dir.Entries = append(dir.Entries, dirEntry{Role: m.Name, Offset: off, Size: int64(len(m.Data))})
+	}
+	if _, err := w.PutJSON(tDirectory, 0, bp.CodecStored, dir); err != nil {
+		return nil, err
+	}
+	if err := w.Finish(); err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
+}
+
+// TestBinpazerStreamingWriterLosesIndex records what a non-seekable writer
+// costs: file_length stays 0xFFFF_FFFF_FFFF_FFFF, so the reader never finds the
+// footer, Find falls back to a linear walk, and the walk reads the footer as a
+// block header.
+func TestBinpazerStreamingWriterLosesIndex(t *testing.T) {
+	ms := entrySet(t)
+	blob, err := bpPackStreaming(ms, bp.CodecZstd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := bp.NewReaderAt(bytes.NewReader(blob), int64(len(blob)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("streamed file: len=%d hasIndex=%v", len(blob), r.HasIndex())
+	offs, ferr := r.Find(tDirectory)
+	t.Logf("Find(directory) -> %v, err=%v", offs, ferr)
+
+	seek, err := bpPack(ms, bp.CodecZstd, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2, err := bp.NewReaderAt(bytes.NewReader(seek), int64(len(seek)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	offs2, err := r2.Find(tDirectory)
+	t.Logf("seekable file: len=%d hasIndex=%v Find(directory) -> %v err=%v",
+		len(seek), r2.HasIndex(), offs2, err)
 }
 
 // bpReadAll pulls every output block back out: the restore path.

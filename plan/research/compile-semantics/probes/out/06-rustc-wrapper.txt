@@ -1,0 +1,11 @@
+# cargo RUSTC_WRAPPER / RUSTC_WORKSPACE_WRAPPER protocol probe
+# both set: cargo runs $RUSTC_WRAPPER $RUSTC_WORKSPACE_WRAPPER $rustc <args>
+
+W1 argv: /tmp/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
+W2 argv: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
+W1 argv: /tmp/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc - --crate-name ___ --print=file-names --crate-type bin --crate-type rlib --crate-type dylib --crate-type cdylib --crate-type staticlib --crate-type proc-macro --print=sysroot --print=split-debuginfo --print=crate-name --print=cfg -Wwarnings
+W2 argv: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc - --crate-name ___ --print=file-names --crate-type bin --crate-type rlib --crate-type dylib --crate-type cdylib --crate-type staticlib --crate-type proc-macro --print=sysroot --print=split-debuginfo --print=crate-name --print=cfg -Wwarnings
+W1 argv: /tmp/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
+W2 argv: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
+W1 argv: /tmp/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name wraptest --edition=2021 src/main.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --check-cfg cfg(docsrs,test) --check-cfg cfg(feature, values()) -C metadata=86bbc085d2c2961a -C extra-filename=-912fa8033c7dbe6d --out-dir /tmp/wraptest/target/debug/deps -C incremental=/tmp/wraptest/target/debug/incremental -L dependency=/tmp/wraptest/target/debug/deps
+W2 argv: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name wraptest --edition=2021 src/main.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --check-cfg cfg(docsrs,test) --check-cfg cfg(feature, values()) -C metadata=86bbc085d2c2961a -C extra-filename=-912fa8033c7dbe6d --out-dir /tmp/wraptest/target/debug/deps -C incremental=/tmp/wraptest/target/debug/incremental -L dependency=/tmp/wraptest/target/debug/deps

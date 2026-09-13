@@ -1,0 +1,19 @@
+# binpazer as a cooked-config trailer
+
+- library: `github.com/wow-look-at-my/bin-file-fmt/go` (MIT)
+- blocks: string table 24576 B, rules 2862 B
+- container: 27728 B (1.1% overhead over the two payloads)
+- iterations: 300, median reported
+
+| operation | us | note |
+|---|---|---|
+| open reader (header + type table + footer) | 11.9 | NewReaderAt: what every read below starts with |
+panic: binpazer: block payload claims 6762810245124 bytes but only 0 remain in the input: binpazer: truncated input
+
+goroutine 1 [running]:
+main.main.func2()
+	/home/user/api-cache/plan/research/startup-perf/probes/trailer/binpazer/main.go:142 +0xa5
+main.timeN(0x12c, 0xc00010cef0)
+	/home/user/api-cache/plan/research/startup-perf/probes/trailer/binpazer/main.go:56 +0x3b
+main.main()
+	/home/user/api-cache/plan/research/startup-perf/probes/trailer/binpazer/main.go:135 +0x665
