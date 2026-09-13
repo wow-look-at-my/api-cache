@@ -12,6 +12,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/klauspost/compress/s2"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
 )
@@ -43,8 +44,8 @@ func zstdEnc(level zstd.EncoderLevel) *zstd.Encoder {
 func TestRatios(t *testing.T) {
 	dec, _ := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
 	defer dec.Close()
-	fmt.Printf("%-20s %10s %10s %8s %10s %8s %10s %8s %10s %8s %10s %8s\n",
-		"file", "raw", "lz4", "ratio", "lz4-L9", "ratio", "zstd-1", "ratio", "zstd-3", "ratio", "zstd-9", "ratio")
+	fmt.Printf("%-20s %10s %10s %8s %10s %8s %10s %8s %10s %8s %10s %8s %10s %8s\n",
+		"file", "raw", "lz4", "ratio", "s2", "ratio", "s2-better", "ratio", "zstd-1", "ratio", "zstd-3", "ratio", "zstd-9", "ratio")
 	for _, p := range corpus {
 		src := load(t, p)
 		var row []any
@@ -56,12 +57,10 @@ func TestRatios(t *testing.T) {
 		w.Close()
 		row = append(row, lz4buf.Len(), fmt.Sprintf("%.3f", float64(lz4buf.Len())/float64(len(src))))
 
-		var lz4hi bytes.Buffer
-		w2 := lz4.NewWriter(&lz4hi)
-		w2.Apply(lz4.CompressionLevelOption(lz4.Level9))
-		w2.Write(src)
-		w2.Close()
-		row = append(row, lz4hi.Len(), fmt.Sprintf("%.3f", float64(lz4hi.Len())/float64(len(src))))
+		s2b := s2.Encode(nil, src)
+		row = append(row, len(s2b), fmt.Sprintf("%.3f", float64(len(s2b))/float64(len(src))))
+		s2bb := s2.EncodeBetter(nil, src)
+		row = append(row, len(s2bb), fmt.Sprintf("%.3f", float64(len(s2bb))/float64(len(src))))
 
 		for _, lv := range []zstd.EncoderLevel{zstd.SpeedFastest, zstd.SpeedDefault, zstd.SpeedBestCompression} {
 			e := zstdEnc(lv)
@@ -69,7 +68,7 @@ func TestRatios(t *testing.T) {
 			e.Close()
 			row = append(row, len(out), fmt.Sprintf("%.3f", float64(len(out))/float64(len(src))))
 		}
-		fmt.Printf("%-20s %10d %10d %8s %10d %8s %10d %8s %10d %8s %10d %8s\n", row...)
+		fmt.Printf("%-20s %10d %10d %8s %10d %8s %10d %8s %10d %8s %10d %8s %10d %8s\n", row...)
 	}
 }
 
@@ -105,6 +104,20 @@ func BenchmarkEncode(b *testing.B) {
 			})
 			e.Close()
 		}
+		b.Run("s2/"+p, func(b *testing.B) {
+			var dst []byte
+			benchEncode(b, p, func(src []byte) int {
+				dst = s2.Encode(dst[:0], src)
+				return len(dst)
+			})
+		})
+		b.Run("s2better/"+p, func(b *testing.B) {
+			var dst []byte
+			benchEncode(b, p, func(src []byte) int {
+				dst = s2.EncodeBetter(dst[:0], src)
+				return len(dst)
+			})
+		})
 		b.Run("flate6/"+p, func(b *testing.B) {
 			var buf bytes.Buffer
 			benchEncode(b, p, func(src []byte) int {
@@ -133,9 +146,22 @@ func BenchmarkDecode(b *testing.B) {
 			b.SetBytes(int64(len(src)))
 			b.ReportAllocs()
 			dst := make([]byte, len(src))
+			r := lz4.NewReader(nil)
 			for b.Loop() {
-				r := lz4.NewReader(bytes.NewReader(lz4b))
+				r.Reset(bytes.NewReader(lz4b))
 				if _, err := io.ReadFull(r, dst); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+
+		s2enc := s2.Encode(nil, src)
+		b.Run("s2/"+p, func(b *testing.B) {
+			b.SetBytes(int64(len(src)))
+			b.ReportAllocs()
+			dst := make([]byte, len(src))
+			for b.Loop() {
+				if _, err := s2.Decode(dst, s2enc); err != nil {
 					b.Fatal(err)
 				}
 			}

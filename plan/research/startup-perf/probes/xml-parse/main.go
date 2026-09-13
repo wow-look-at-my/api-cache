@@ -417,6 +417,8 @@ func main() {
 		}
 	}))
 
+	rows = append(rows, lazyStages(*n, refSrc, fm, data)...)
+
 	for _, r := range rows {
 		fmt.Println(r.row())
 	}
