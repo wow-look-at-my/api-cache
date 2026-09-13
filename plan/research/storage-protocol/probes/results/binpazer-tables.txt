@@ -1,0 +1,14 @@
+=== RUN   TestBinpazerStreamingWriterLosesIndex
+    binpazer_test.go:304: streamed file: len=145064 hasIndex=false
+    binpazer_test.go:306: Find(directory) -> [], err=binpazer: block payload claims 6762810245124 bytes but only 0 remain in the input: binpazer: truncated input
+    binpazer_test.go:317: seekable file: len=145064 hasIndex=true Find(directory) -> [144736] err=<nil>
+--- PASS: TestBinpazerStreamingWriterLosesIndex (0.02s)
+=== RUN   TestBinpazerRoundTrip
+    binpazer_test.go:436: stored       file=580344 raw=579771 overhead=+573 (0.099%)
+    binpazer_test.go:436: stored+crc   file=580376 raw=579771 overhead=+605 (0.104%)
+    binpazer_test.go:436: zstd         file=145064 raw=579771 overhead=-434707 (-74.979%)
+    binpazer_test.go:436: zstd+crc     file=145096 raw=579771 overhead=-434675 (-74.974%)
+    binpazer_test.go:436: lz4          file=225928 raw=579771 overhead=-353843 (-61.032%)
+--- PASS: TestBinpazerRoundTrip (0.06s)
+PASS
+ok  	apicache/probes/binpazer	0.096s

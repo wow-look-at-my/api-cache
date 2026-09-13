@@ -115,6 +115,14 @@ Nothing in the family does any of the following. They are enumerated with their 
 - Parsing a compiler's dependency output (`.d` files), or globbing.
 - A hot path where a render's 62 µs is a real cost.
 
+`gaps.md`'s **Addendum** carries the detailed evidence on four of these: exactly what
+`passthroughParse` and `<flag>` can and cannot express today (arity, exact-match lookup only, no
+role, no pattern on a flag, no attached-value short form, silent failure), whether sibling order
+survives the DOM and where both consumers already depend on it, the fact that **no include, overlay
+or document merge exists anywhere in the family**, and where a binary-safe streaming-and-hashing
+capture of a program's stdout already exists (`api-cli/downloader.go:329-431`) versus where a step's
+output is trimmed and JSON-decoded before any template sees it (`api-cli/exec.go:218-233`).
+
 ---
 
 ## 4. Dependency and license summary

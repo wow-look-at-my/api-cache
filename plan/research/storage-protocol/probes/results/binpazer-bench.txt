@@ -1,0 +1,14 @@
+goos: linux
+goarch: amd64
+pkg: apicache/probes/binpazer
+cpu: Intel(R) Xeon(R) Processor @ 2.80GHz
+BenchmarkBaselineReadOne/tar/scan-4         	    2796	    211581 ns/op	2494.74 MB/s	  535757 B/op	      56 allocs/op
+BenchmarkBaselineReadOne/framed/pread-4     	    5395	    110582 ns/op	4773.30 MB/s	  532609 B/op	       2 allocs/op
+BenchmarkBinpazerPack/stored-4              	     876	    701161 ns/op	 826.87 MB/s	 1337439 B/op	      56 allocs/op
+BenchmarkBinpazerPack/stored+crc-4          	     631	    871457 ns/op	 665.29 MB/s	 1337525 B/op	      61 allocs/op
+BenchmarkBinpazerPack/zstd-4                	      67	   8843341 ns/op	  65.56 MB/s	28791736 B/op	     300 allocs/op
+BenchmarkBinpazerPack/lz4-4                 	     201	   2893650 ns/op	 200.36 MB/s	 1877676 B/op	      83 allocs/op
+BenchmarkBinpazerReadAll/stored-4           	     409	   1736374 ns/op	 333.90 MB/s	 2855706 B/op	     120 allocs/op
+BenchmarkBinpazerReadAll/stored+crc-4       	     321	   1766780 ns/op	 328.15 MB/s	 2855708 B/op	     120 allocs/op
+BenchmarkBinpazerReadAll/zstd-4             	     139	   4559972 ns/op	 127.14 MB/s	14301096 B/op	     307 allocs/op
+BenchmarkBinpazerReadAll/lz4-4              	     441	   1281927 ns/op	 452.27 MB/s	 3219409 B/op	     149 allocs/op
