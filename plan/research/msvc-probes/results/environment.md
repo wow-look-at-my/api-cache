@@ -20,7 +20,7 @@ CurrentCulture    = en-US
 ANSICodePage      = 1252
 OEMCodePage       = 437
 console output CP = 65001
-run URL           = https://github.com/wow-look-at-my/api-cache/actions/runs/34731245969
+run URL           = https://github.com/wow-look-at-my/api-cache/actions/runs/34731635556
 ```
 
 ```

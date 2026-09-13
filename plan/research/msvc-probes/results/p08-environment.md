@@ -1,7 +1,7 @@
 # Probe 8: INCLUDE, EXTERNAL_INCLUDE, LIB, TMP, VS_UNICODE_OUTPUT
 
 Runner: `win25-vs2026 / 20260907.229.1` on `Windows`.
-Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34731245969
+Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34731635556
 
 Raw captures (stdout / stderr / exit code, one file each) are under `p08-environment/` in this artifact.
 
@@ -21,8 +21,8 @@ C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um
 `EXTERNAL_INCLUDE` = `C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um`
 `LIB` = `C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\lib\x64;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\lib\um\x64;C:\Program Files (x86)\Windows Kits\10\lib\10.0.26100.0\ucrt\x64;C:\Program Files (x86)\Windows Kits\10\\lib\10.0.26100.0\\um\x64`
 `LIBPATH` = `C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\lib\x64;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\lib\x86\store\references;C:\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.26100.0;C:\Program Files (x86)\Windows Kits\10\References\10.0.26100.0;C:\Windows\Microsoft.NET\Framework64\v4.0.30319`
-`CL` = ``
-`_CL_` = ``
+`CL` = `(unset)`
+`_CL_` = `(unset)`
 `TMP` = `C:\Users\RUNNER~1\AppData\Local\Temp`
 `TEMP` = `C:\Users\RUNNER~1\AppData\Local\Temp`
 `VSLANG` = ``
@@ -75,8 +75,8 @@ stderr:
 ```
 
 ```
-A.obj (INCLUDE=incA;...) : 1A9F39AA72C6E87F70D1283E7006D11B7EAE75BF3A0D2D055C697CA94B6BA364
-B.obj (INCLUDE=incB;...) : 8D29CEA853BDFA2E46AE222FC585F88C6A90FC72423BE74169DD529F0DCBF8AF
+A.obj (INCLUDE=incA;...) : 3D99B10455B09DA8231C77EF30E0415192975613A40BE4B58A894A038B80143A
+B.obj (INCLUDE=incB;...) : F7F33ACB057BC9D6E2DAC8FA0E81CA843240FE69B613E85A4D699FF6DE8E0582
 identical                : False
 ```
 
@@ -235,7 +235,7 @@ VS_UNICODE_OUTPUT=1. msvc.md §8: cl then sends its output to the IDE process ra
 
 cmd: `C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64\cl.exe /nologo /c /W4 /Fovsu.obj e.c`
 cwd: `C:\p\p08`
-env: `INCLUDE=C:\p\p08\incA;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um; VS_UNICODE_OUTPUT=1`
+env: `VS_UNICODE_OUTPUT=1; INCLUDE=C:\p\p08\incA;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um`
 
 exit code: **0**  |  stdout: 0 bytes  |  stderr: 0 bytes
 
@@ -253,7 +253,7 @@ stderr:
 
 cmd: `C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64\cl.exe /nologo /c /W4 /Fovsu0.obj e.c`
 cwd: `C:\p\p08`
-env: `INCLUDE=C:\p\p08\incA;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um; VS_UNICODE_OUTPUT=0`
+env: `VS_UNICODE_OUTPUT=0; INCLUDE=C:\p\p08\incA;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um`
 
 exit code: **0**  |  stdout: 0 bytes  |  stderr: 0 bytes
 
@@ -271,7 +271,7 @@ stderr:
 
 cmd: `C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64\cl.exe /nologo /c /W4 /Fovsug.obj e.c`
 cwd: `C:\p\p08`
-env: `INCLUDE=C:\p\p08\incA;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um; VS_UNICODE_OUTPUT=notanumber`
+env: `VS_UNICODE_OUTPUT=notanumber; INCLUDE=C:\p\p08\incA;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include;C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um`
 
 exit code: **0**  |  stdout: 0 bytes  |  stderr: 0 bytes
 
@@ -312,11 +312,12 @@ The same compile with VS_UNICODE_OUTPUT unset, for the comparison.
 cmd: `C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64\cl.exe /nologo /c /Fobad2.obj bad.c`
 cwd: `C:\p\p08`
 
-exit code: **2**  |  stdout: 0 bytes  |  stderr: 0 bytes
+exit code: **2**  |  stdout: 69 bytes  |  stderr: 0 bytes
 
 stdout:
 ```
-(empty)
+bad.c
+bad.c(1): error C2065: 'nosuchsymbol': undeclared identifier
 ```
 
 stderr:

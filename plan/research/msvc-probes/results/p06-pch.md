@@ -1,7 +1,7 @@
 # Probe 6: /Yc, /Yu, /Fp, and the missing / stale .pch
 
 Runner: `win25-vs2026 / 20260907.229.1` on `Windows`.
-Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34731245969
+Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34731635556
 
 Raw captures (stdout / stderr / exit code, one file each) are under `p06-pch/` in this artifact.
 
@@ -276,8 +276,8 @@ files on disk after the run (C:\p\p06-pch-identity-in-object):
 ## Does the object differ when only the .pch behind it differs?
 
 ```
-useA.obj (against A.pch) : 2D9AB8091E6128DF3728FAEA3CEC3BD4FC9EC69E84DFFA98BFA7707936E87869
-useB.obj (against B.pch) : 878AFF0166C005958BD638575E9B20353ACAC9CECC27F0920B19262608A35460
+useA.obj (against A.pch) : 9FE2D17FCEF711E7459A7225E878E73EC8EE3DBDAB4796C3B6ED5D108C171E26
+useB.obj (against B.pch) : A91D42A6A51D1C08B9117C75F2DE1425A3553159520058464B029744C0B4392D
 identical                : False
 ```
 

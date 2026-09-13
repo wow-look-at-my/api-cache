@@ -1,7 +1,7 @@
 # Probe 7: @response files, quoting, nesting, UTF-16; CL and _CL_
 
 Runner: `win25-vs2026 / 20260907.229.1` on `Windows`.
-Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34731245969
+Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34731635556
 
 Raw captures (stdout / stderr / exit code, one file each) are under `p07-response-files/` in this artifact.
 
@@ -476,7 +476,7 @@ Both set plus argv: the full ordering in one shot.
 
 cmd: `C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64\cl.exe /nologo /c /DVAL=fromArgv /Foboth.obj probe.c`
 cwd: `C:\p\p07-CL-env`
-env: `CL=/DVAL=fromCL; _CL_=/DVAL=fromUnderscoreCL`
+env: `_CL_=/DVAL=fromUnderscoreCL; CL=/DVAL=fromCL`
 
 exit code: **0**  |  stdout: 44 bytes  |  stderr: 0 bytes
 
@@ -565,7 +565,7 @@ stderr:
 
 ### env-CL-empty
 
-CL set to the empty string.
+CL set to the empty string. On Windows an environment variable set to "" is indistinguishable from an unset one -- the harness's Set-ProbeEnv therefore removes it, which is the only thing "empty" can mean here. The result is the baseline, and that IS the finding.
 
 cmd: `C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64\cl.exe /nologo /c /Foempty.obj probe.c`
 cwd: `C:\p\p07-CL-env`
