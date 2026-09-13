@@ -216,4 +216,4 @@ $null = Invoke-Probe -Id 'env-CL-names-rsp' -Exe $cl -CmdArgs @('/nologo', '/c',
 # --- an empty CL: is "set but empty" different from unset?
 $null = Invoke-Probe -Id 'env-CL-empty' -Exe $cl -CmdArgs @('/nologo', '/c', '/Foempty.obj', 'probe.c') -WorkDir $d `
     -EnvVars @{ CL = '' } -Comment `
-    'CL set to the empty string.'
+    'CL set to the empty string. On Windows an environment variable set to "" is indistinguishable from an unset one -- the harness''s Set-ProbeEnv therefore removes it, which is the only thing "empty" can mean here. The result is the baseline, and that IS the finding.'

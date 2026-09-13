@@ -75,7 +75,7 @@ foreach ($f in $families) {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     # Belt and braces against the run-3 contamination: no family may start
     # under a VS_UNICODE_OUTPUT left behind by the previous one.
-    [System.Environment]::SetEnvironmentVariable('VS_UNICODE_OUTPUT', $null)
+    if (Test-Path -LiteralPath 'Env:\VS_UNICODE_OUTPUT') { Remove-Item -LiteralPath 'Env:\VS_UNICODE_OUTPUT' -Force }
     try {
         & $path
         Write-Host "================ FAMILY END $f ok ($([int]$sw.Elapsed.TotalSeconds)s) ================"

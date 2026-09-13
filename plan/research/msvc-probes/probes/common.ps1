@@ -91,6 +91,29 @@ function Format-Block {
     return $Text.TrimEnd("`r", "`n")
 }
 
+# Set or truly REMOVE an environment variable.
+#
+# This exists because of a measured trap. PowerShell's
+# `[Environment]::SetEnvironmentVariable($name, $null)` does not remove the
+# variable on Windows -- it leaves it PRESENT with an empty value. cl.exe tests
+# VS_UNICODE_OUTPUT for PRESENCE, not for value, so a "restored to null"
+# VS_UNICODE_OUTPUT still routes every byte of cl's output to an IDE pipe and
+# the wrapper captures nothing at all: no diagnostics, no source-name line.
+# That is exactly what silenced the tail of p08 and the whole of p09 in run 3,
+# and (once the same call was added to every probe) every family in run 4.
+# `Remove-Item Env:\<name>` is the only spelling that actually unsets it.
+#
+# The lesson generalises to the product: a cache wrapper must DELETE
+# VS_UNICODE_OUTPUT from the child environment. Setting it to "" is not unsetting it.
+function Set-ProbeEnv {
+    param([Parameter(Mandatory)][string]$Name, [AllowNull()][AllowEmptyString()]$Value)
+    if ($null -eq $Value -or "$Value" -eq '') {
+        if (Test-Path -LiteralPath "Env:\$Name") { Remove-Item -LiteralPath "Env:\$Name" -Force }
+    } else {
+        Set-Item -LiteralPath "Env:\$Name" -Value "$Value"
+    }
+}
+
 # Quote one argument for a .cmd file. Only a space needs quoting; anything that
 # cmd.exe itself would interpret is REFUSED loudly rather than silently
 # mis-executed, because a probe that ran a different command line than the one
@@ -146,7 +169,7 @@ function Invoke-Probe {
     $saved = @{}
     foreach ($k in $EnvVars.Keys) {
         $saved[$k] = [System.Environment]::GetEnvironmentVariable($k)
-        [System.Environment]::SetEnvironmentVariable($k, $EnvVars[$k])
+        Set-ProbeEnv -Name $k -Value $EnvVars[$k]
     }
 
     # VS_UNICODE_OUTPUT makes cl.exe send ALL of its console output to an IDE
@@ -160,7 +183,7 @@ function Invoke-Probe {
     # contaminated by an earlier one regardless of how the value got there.
     if (-not $EnvVars.ContainsKey('VS_UNICODE_OUTPUT')) {
         $saved['VS_UNICODE_OUTPUT'] = [System.Environment]::GetEnvironmentVariable('VS_UNICODE_OUTPUT')
-        [System.Environment]::SetEnvironmentVariable('VS_UNICODE_OUTPUT', $null)
+        Set-ProbeEnv -Name 'VS_UNICODE_OUTPUT' -Value $null
     }
 
     $display = "$Exe " + ($CmdArgs -join ' ')
@@ -184,7 +207,7 @@ function Invoke-Probe {
             $code = 'TIMEOUT'
         }
     } finally {
-        foreach ($k in $saved.Keys) { [System.Environment]::SetEnvironmentVariable($k, $saved[$k]) }
+        foreach ($k in $saved.Keys) { Set-ProbeEnv -Name $k -Value $saved[$k] }
     }
 
     Set-Content -Path $codeFile -Value "$code" -Encoding utf8
