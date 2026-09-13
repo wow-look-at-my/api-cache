@@ -1,0 +1,24 @@
+goos: linux
+goarch: amd64
+pkg: apicache/probes/binpazer
+cpu: Intel(R) Xeon(R) Processor @ 2.80GHz
+BenchmarkBaselineReadOne/tar/scan-4         	    1114	    184996 ns/op	2853.25 MB/s	  535781 B/op	      56 allocs/op
+BenchmarkBaselineReadOne/framed/pread-4     	    2977	     76642 ns/op	6887.07 MB/s	  532609 B/op	       2 allocs/op
+BenchmarkBinpazerPack/stored-4              	     404	    636431 ns/op	 910.97 MB/s	 1337478 B/op	      56 allocs/op
+BenchmarkBinpazerPack/stored+crc-4          	     424	    644572 ns/op	 899.47 MB/s	 1337498 B/op	      61 allocs/op
+BenchmarkBinpazerPack/zstd-4                	      26	   9269084 ns/op	  62.55 MB/s	28792401 B/op	     301 allocs/op
+BenchmarkBinpazerPack/lz4-4                 	      80	   2867771 ns/op	 202.17 MB/s	 1622039 B/op	      82 allocs/op
+BenchmarkBinpazerReadAll/stored-4           	     164	   1454217 ns/op	 398.68 MB/s	 2855709 B/op	     120 allocs/op
+BenchmarkBinpazerReadAll/stored+crc-4       	     132	   1769177 ns/op	 327.71 MB/s	 2855705 B/op	     120 allocs/op
+BenchmarkBinpazerReadAll/zstd-4             	      88	   2841156 ns/op	 204.06 MB/s	14299805 B/op	     306 allocs/op
+BenchmarkBinpazerReadAll/lz4-4              	     210	   1172181 ns/op	 494.61 MB/s	 3317378 B/op	     149 allocs/op
+BenchmarkBinpazerReadOne/stored-4           	     151	   1572923 ns/op	 335.58 MB/s	 2605520 B/op	      82 allocs/op
+BenchmarkBinpazerReadOne/stored+crc-4       	     146	   1602965 ns/op	 329.29 MB/s	 2605531 B/op	      82 allocs/op
+BenchmarkBinpazerReadOne/zstd-4             	      78	   2600154 ns/op	 203.00 MB/s	13729409 B/op	     144 allocs/op
+BenchmarkBinpazerReadOne/lz4-4              	     222	    987780 ns/op	 534.37 MB/s	 2965219 B/op	      90 allocs/op
+BenchmarkBinpazerReadOne/sized/stored-4     	     952	    358837 ns/op	1470.97 MB/s	  600272 B/op	      59 allocs/op
+BenchmarkBinpazerReadOne/sized/zstd-4       	      98	   2514470 ns/op	 209.92 MB/s	11723276 B/op	     119 allocs/op
+BenchmarkBinpazerReadOne/sized/lz4-4        	     147	   1703272 ns/op	 309.90 MB/s	 8961366 B/op	      69 allocs/op
+BenchmarkBinpazerReadOne/stored/file-4      	     202	   1338672 ns/op	 394.30 MB/s	 2605483 B/op	      81 allocs/op
+PASS
+ok  	apicache/probes/binpazer	4.513s

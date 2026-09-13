@@ -44,3 +44,76 @@ BenchmarkDecode/zstd9/testdata/small.o-4       	   14140	     16756 ns/op	 608.2
 BenchmarkDecode/zstd1/testdata/small.o-4       	   13869	     17192 ns/op	 592.84 MB/s	       1 B/op	       0 allocs/op
 BenchmarkDecode/lz4/testdata/mid.o-4           	     798	    281986 ns/op	1871.87 MB/s	    5416 B/op	       2 allocs/op
 BenchmarkDecode/s2/testdata/mid.o-4            	     618	    380486 ns/op	1387.28 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDecode/zstd1/testdata/mid.o-4         	     349	    683214 ns/op	 772.58 MB/s	    1999 B/op	       0 allocs/op
+BenchmarkDecode/zstd3/testdata/mid.o-4         	     354	    675227 ns/op	 781.72 MB/s	    1600 B/op	       0 allocs/op
+BenchmarkDecode/zstd9/testdata/mid.o-4         	     372	    655568 ns/op	 805.16 MB/s	    1434 B/op	       0 allocs/op
+BenchmarkDecode/lz4/testdata/big_g1.o-4        	     265	    901457 ns/op	1653.29 MB/s	   15990 B/op	       2 allocs/op
+BenchmarkDecode/s2/testdata/big_g1.o-4         	     224	   1063289 ns/op	1401.66 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDecode/zstd9/testdata/big_g1.o-4      	     148	   1591350 ns/op	 936.54 MB/s	   10118 B/op	       0 allocs/op
+BenchmarkDecode/zstd1/testdata/big_g1.o-4      	     129	   1834614 ns/op	 812.36 MB/s	   11821 B/op	       0 allocs/op
+BenchmarkDecode/zstd3/testdata/big_g1.o-4      	     138	   1729605 ns/op	 861.68 MB/s	   11109 B/op	       0 allocs/op
+BenchmarkDecode/lz4/testdata/big.o-4           	      79	   3053318 ns/op	1650.94 MB/s	   53261 B/op	       2 allocs/op
+BenchmarkDecode/s2/testdata/big.o-4            	      61	   3573651 ns/op	1410.56 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDecode/zstd1/testdata/big.o-4         	      34	   6545728 ns/op	 770.09 MB/s	  148460 B/op	       0 allocs/op
+BenchmarkDecode/zstd3/testdata/big.o-4         	      38	   6177129 ns/op	 816.05 MB/s	  133906 B/op	       0 allocs/op
+BenchmarkDecode/zstd9/testdata/big.o-4         	      42	   5555754 ns/op	 907.32 MB/s	  120178 B/op	       0 allocs/op
+BenchmarkDecode/lz4/testdata/mid.d-4           	   61309	      3913 ns/op	2328.34 MB/s	     160 B/op	       2 allocs/op
+BenchmarkDecode/s2/testdata/mid.d-4            	  108487	      2162 ns/op	4214.67 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDecode/zstd1/testdata/mid.d-4         	   26782	      8890 ns/op	1024.87 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDecode/zstd3/testdata/mid.d-4         	   23101	     10510 ns/op	 866.93 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDecode/zstd9/testdata/mid.d-4         	   25791	      9327 ns/op	 976.86 MB/s	       0 B/op	       0 allocs/op
+BenchmarkMemcpyBaseline/testdata/small.o-4     	 3682846	        65.14 ns/op	156468.71 MB/s
+BenchmarkMemcpyBaseline/testdata/mid.o-4       	   21658	     11073 ns/op	47669.19 MB/s
+BenchmarkMemcpyBaseline/testdata/big_g1.o-4    	    2139	    103567 ns/op	14390.41 MB/s
+BenchmarkMemcpyBaseline/testdata/big.o-4       	     385	    581137 ns/op	8674.08 MB/s
+BenchmarkMemcpyBaseline/testdata/mid.d-4       	 4057089	        58.99 ns/op	154438.82 MB/s
+BenchmarkCodecConstruct/zstd.NewReader-4       	  351946	       707.8 ns/op	    1304 B/op	       7 allocs/op
+BenchmarkCodecConstruct/zstd.NewReader/default-concurrency-4         	  124005	      1935 ns/op	    3776 B/op	      13 allocs/op
+BenchmarkCodecConstruct/zstd.NewWriter-4                             	 1000000	       311.9 ns/op	     640 B/op	       1 allocs/op
+BenchmarkCodecConstruct/lz4.NewReader-4                              	 1426449	       170.2 ns/op	     304 B/op	       2 allocs/op
+BenchmarkCodecConstruct/lz4.NewWriter-4                              	 1428692	       167.2 ns/op	     288 B/op	       2 allocs/op
+BenchmarkDecodeStreamVsOneShot/zstd/DecodeAll/pooled-4               	     286	    867797 ns/op	 608.25 MB/s	     714 B/op	       0 allocs/op
+BenchmarkDecodeStreamVsOneShot/zstd/NewReader-per-call/stream-4      	     206	   1109607 ns/op	 475.70 MB/s	 1311213 B/op	      27 allocs/op
+BenchmarkDecodeStreamVsOneShot/lz4/NewReader-per-call/stream-4       	     140	   1791965 ns/op	 294.56 MB/s	 8329398 B/op	       6 allocs/op
+BenchmarkDecodeStreamVsOneShot/lz4/Reset/stream-4                    	     820	    290206 ns/op	1818.84 MB/s	   10392 B/op	       2 allocs/op
+BenchmarkContainerPack/framed-4                                      	     237	   1000491 ns/op	 579.49 MB/s	 1597575 B/op	       4 allocs/op
+BenchmarkContainerPack/tar-4                                         	     216	   1050870 ns/op	 551.71 MB/s	 1599277 B/op	      26 allocs/op
+BenchmarkContainerPack/tar+manifest-4                                	     187	   1224278 ns/op	 473.56 MB/s	 1605663 B/op	      72 allocs/op
+BenchmarkContainerPack/zipStored-4                                   	     255	    955378 ns/op	 606.85 MB/s	 1607664 B/op	      59 allocs/op
+BenchmarkContainerUnpackAll/framed-4                                 	 3799735	        61.27 ns/op	9461986.12 MB/s	      96 B/op	       1 allocs/op
+BenchmarkContainerUnpackAll/tar-4                                    	     926	    244770 ns/op	2368.64 MB/s	  588166 B/op	      62 allocs/op
+BenchmarkContainerUnpackAll/zipStored-4                              	     409	    524199 ns/op	1106.01 MB/s	 1198091 B/op	     110 allocs/op
+BenchmarkContainerReadObjectOnly/framed/inmem-4                      	129279535	         1.890 ns/op	279288708.21 MB/s	       0 B/op	       0 allocs/op
+BenchmarkContainerReadObjectOnly/framed/pread-4                      	    2648	     92925 ns/op	5680.27 MB/s	  532481 B/op	       1 allocs/op
+BenchmarkContainerReadObjectOnly/tar/scan-4                          	    1010	    228479 ns/op	2310.24 MB/s	  536100 B/op	      56 allocs/op
+BenchmarkContainerReadObjectOnly/zipStored/central-dir-4             	     450	    545737 ns/op	 967.21 MB/s	 1079872 B/op	      55 allocs/op
+BenchmarkStat-4                                                      	  264751	       824.7 ns/op	     256 B/op	       2 allocs/op
+BenchmarkStatMiss-4                                                  	  342774	       665.8 ns/op	     304 B/op	       3 allocs/op
+BenchmarkOpenClose-4                                                 	   90735	      2617 ns/op	     152 B/op	       3 allocs/op
+BenchmarkOpenReadAll/4KiB-4                                          	   75340	      3223 ns/op	1270.78 MB/s	     152 B/op	       3 allocs/op
+BenchmarkOpenReadAll/200KiB-4                                        	   29852	      8051 ns/op	25439.00 MB/s	     168 B/op	       3 allocs/op
+BenchmarkOpenReadAll/512KiB-4                                        	   12363	     19389 ns/op	27040.70 MB/s	     168 B/op	       3 allocs/op
+BenchmarkOpenReadAll/5MiB-4                                          	     597	    390534 ns/op	13424.89 MB/s	     152 B/op	       3 allocs/op
+BenchmarkReadOneContainer-4                                          	    9410	     21368 ns/op	25877.83 MB/s	     152 B/op	       3 allocs/op
+BenchmarkReadFourBlobs-4                                             	    7657	     30098 ns/op	18372.01 MB/s	     608 B/op	      12 allocs/op
+BenchmarkHashSHA256/4KiB-4                                           	   20730	     11649 ns/op	 351.61 MB/s	     160 B/op	       2 allocs/op
+BenchmarkHashSHA256/200KiB-4                                         	     432	    557262 ns/op	 367.51 MB/s	     160 B/op	       2 allocs/op
+BenchmarkHashSHA256/512KiB-4                                         	     165	   1433462 ns/op	 365.75 MB/s	     160 B/op	       2 allocs/op
+BenchmarkHashSHA256/5MiB-4                                           	      14	  14419197 ns/op	 363.60 MB/s	     160 B/op	       2 allocs/op
+BenchmarkHashCRC32C/4KiB-4                                           	 1463697	       163.1 ns/op	25112.30 MB/s	       0 B/op	       0 allocs/op
+BenchmarkHashCRC32C/200KiB-4                                         	   28605	      8369 ns/op	24471.19 MB/s	       0 B/op	       0 allocs/op
+BenchmarkHashCRC32C/512KiB-4                                         	   10000	     21818 ns/op	24029.60 MB/s	       0 B/op	       0 allocs/op
+BenchmarkHashCRC32C/5MiB-4                                           	     888	    253004 ns/op	20722.53 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRawStat-4                                                   	  360224	       662.4 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRawStatMiss-4                                               	  426931	       484.0 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRestoreCopyRename/200KiB-4                                  	    1569	    136947 ns/op	1495.47 MB/s	     800 B/op	      11 allocs/op
+BenchmarkRestoreCopyRename/512KiB-4                                  	     948	    246817 ns/op	2124.19 MB/s	     800 B/op	      11 allocs/op
+BenchmarkRestoreCopyRename/5MiB-4                                    	      98	   2138035 ns/op	2452.20 MB/s	     800 B/op	      11 allocs/op
+BenchmarkRestoreCopyFileRange/200KiB-4                               	    2097	    130525 ns/op	1569.05 MB/s	     896 B/op	      12 allocs/op
+BenchmarkRestoreCopyFileRange/512KiB-4                               	     850	    264562 ns/op	1981.72 MB/s	     928 B/op	      12 allocs/op
+BenchmarkRestoreCopyFileRange/5MiB-4                                 	     162	   1370941 ns/op	3824.29 MB/s	     864 B/op	      12 allocs/op
+BenchmarkRestoreHardLink/200KiB-4                                    	   53290	      4366 ns/op	46909.11 MB/s	     192 B/op	       3 allocs/op
+BenchmarkRestoreHardLink/512KiB-4                                    	   58596	      3981 ns/op	131707.67 MB/s	     192 B/op	       3 allocs/op
+BenchmarkRestoreHardLink/5MiB-4                                      	   62456	      3914 ns/op	1339396.01 MB/s	     192 B/op	       3 allocs/op
+PASS
+ok  	apicache/probes	27.063s

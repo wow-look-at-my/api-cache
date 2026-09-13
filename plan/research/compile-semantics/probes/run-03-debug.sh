@@ -1,36 +1,70 @@
 #!/bin/sh
-# Probe: what a compile embeds in the object file, and how prefix maps change it.
-cd "$(dirname "$0")/src"
-R=$(mktemp -d); trap 'rm -rf $R' EXIT
-dump(){ printf '  DW_AT_name/comp_dir/producer for %s:\n' "$1"; readelf --debug-dump=info "$1" 2>/dev/null | grep -E 'DW_AT_(name|comp_dir|producer)' | head -6; }
-echo "===== 1. -g, compiled from cwd=src with relative source ====="
-gcc -g -c hello.c -o $R/a.o && dump $R/a.o
-echo "===== 2. -g, compiled from parent cwd with relative path src/hello.c ====="
-( cd .. && gcc -g -c src/hello.c -o $R/b.o ) && dump $R/b.o
-echo "  byte-identical to (1)? "; cmp -s $R/a.o $R/b.o && echo "  YES" || echo "  NO"
-echo "===== 3. -g with absolute source path ====="
-gcc -g -c "$PWD/hello.c" -o $R/c.o && dump $R/c.o
-echo "===== 4. -g -fdebug-prefix-map=\$PWD=/proj ====="
-gcc -g -fdebug-prefix-map="$PWD=/proj" -c "$PWD/hello.c" -o $R/d.o && dump $R/d.o
-echo "===== 5. -g -ffile-prefix-map=\$PWD=/proj (also rewrites __FILE__) ====="
-gcc -g -ffile-prefix-map="$PWD=/proj" -c "$PWD/hello.c" -o $R/e.o && dump $R/e.o
-echo "===== 6. clang -g -fdebug-compilation-dir=/proj ====="
-clang -g -fdebug-compilation-dir=/proj -c hello.c -o $R/f.o && dump $R/f.o
-echo "===== 7. determinism: same argv twice, byte compare (no -g) ====="
-gcc -O2 -c hello.c -o $R/g1.o; gcc -O2 -c hello.c -o $R/g2.o
-cmp -s $R/g1.o $R/g2.o && echo "  identical" || echo "  DIFFER"
-echo "===== 8. determinism with -g ====="
-gcc -O2 -g -c hello.c -o $R/h1.o; gcc -O2 -g -c hello.c -o $R/h2.o
-cmp -s $R/h1.o $R/h2.o && echo "  identical" || echo "  DIFFER"
-echo "===== 9. does the -o NAME leak into the .o? (same input, two -o names) ====="
-gcc -g -O2 -c hello.c -o $R/name1.o; gcc -g -O2 -c hello.c -o $R/name2.o
-cmp -s $R/name1.o $R/name2.o && echo "  identical -> -o name not embedded" || { echo "  DIFFER -> -o leaks"; cmp -l $R/name1.o $R/name2.o | head -3; }
-echo "===== 10. -frandom-seed effect (C++ with anon namespace / static) ====="
-printf 'static int f(void){return 1;}\nint g(void){return f();}\n' > $R/r.c
-gcc -c -flto $R/r.c -o $R/r1.o; gcc -c -flto $R/r.c -o $R/r2.o; cmp -s $R/r1.o $R/r2.o && echo "  -flto .o identical" || echo "  -flto .o DIFFER (random seed)"
-gcc -c -flto -frandom-seed=0 $R/r.c -o $R/r3.o; gcc -c -flto -frandom-seed=0 $R/r.c -o $R/r4.o; cmp -s $R/r3.o $R/r4.o && echo "  -frandom-seed=0 identical" || echo "  -frandom-seed=0 DIFFER"
-echo "===== 11. __FILE__ value under relative vs absolute invocation ====="
-printf '#include <stdio.h>\nconst char *p=__FILE__;\n' > $R/fi.c
-gcc -E $R/fi.c | tail -1
-( cd $R && gcc -E fi.c | tail -1 )
-( cd $R && gcc -E -ffile-prefix-map=$R=/X fi.c | tail -1 )
+# Probe 03: what a compile embeds in the object, prefix maps, determinism.
+# Every step records PASS/FAIL explicitly. No `|| true`.
+cd "$(dirname "$0")" || exit 1
+. ./probe-lib.sh
+cd src || exit 1
+R=$(mktemp -d) || exit 1
+trap 'rm -rf "$R"' EXIT
+
+step "readelf is present (the probe needs it; a missing tool is a FAIL, not a skip)" \
+	sh -c 'command -v readelf'
+
+dump() {
+	say "--- DW_AT_name / DW_AT_comp_dir / DW_AT_producer of $1 ---"
+	readelf --debug-dump=info "$1" | grep -E 'DW_AT_(name|comp_dir|producer)' | head -3
+	say "--- end ---"
+}
+
+step "1. -g, cwd=src, relative source"        gcc -g -c hello.c -o "$R/a.o"
+step "   inspect"                              dump "$R/a.o"
+step "2. -g, cwd=parent, source 'src/hello.c'" sh -c 'cd .. && gcc -g -c src/hello.c -o "$1/b.o"' _ "$R"
+step "   inspect"                              dump "$R/b.o"
+xstep "   (1) and (2) must DIFFER: comp_dir and DW_AT_name both moved" nonzero \
+	cmp -s "$R/a.o" "$R/b.o"
+step "3. -g with an ABSOLUTE source path"      gcc -g -c "$PWD/hello.c" -o "$R/c.o"
+step "   inspect"                              dump "$R/c.o"
+step "4. -g -fdebug-prefix-map=\$PWD=/proj"    gcc -g -fdebug-prefix-map="$PWD=/proj" -c "$PWD/hello.c" -o "$R/d.o"
+step "   inspect"                              dump "$R/d.o"
+step "5. -g -ffile-prefix-map=\$PWD=/proj"     gcc -g -ffile-prefix-map="$PWD=/proj" -c "$PWD/hello.c" -o "$R/e.o"
+step "   inspect"                              dump "$R/e.o"
+step "6. clang -g -fdebug-compilation-dir=/proj" clang -g -fdebug-compilation-dir=/proj -c hello.c -o "$R/f.o"
+step "   inspect"                              dump "$R/f.o"
+
+step "7. determinism, -O2 (no -g): compile twice" \
+	sh -c 'gcc -O2 -c hello.c -o "$1/g1.o" && gcc -O2 -c hello.c -o "$1/g2.o"' _ "$R"
+step "   the two objects must be IDENTICAL"    cmp -s "$R/g1.o" "$R/g2.o"
+step "8. determinism, -O2 -g: compile twice" \
+	sh -c 'gcc -O2 -g -c hello.c -o "$1/h1.o" && gcc -O2 -g -c hello.c -o "$1/h2.o"' _ "$R"
+step "   the two objects must be IDENTICAL"    cmp -s "$R/h1.o" "$R/h2.o"
+step "9. the -o NAME must NOT leak into the object" \
+	sh -c 'gcc -g -O2 -c hello.c -o "$1/name1.o" && gcc -g -O2 -c hello.c -o "$1/name2.o" && cmp -s "$1/name1.o" "$1/name2.o"' _ "$R"
+
+step "10. LTO bitcode reproducibility: compile the same TU twice with -flto" sh -c '
+	set -e
+	printf "static int f(void){return 1;}\nint g(void){return f();}\n" > "$1/r.c"
+	gcc -c -flto "$1/r.c" -o "$1/r1.o"
+	gcc -c -flto "$1/r.c" -o "$1/r2.o"
+	gcc -c -flto -frandom-seed=0 "$1/r.c" -o "$1/r3.o"
+	gcc -c -flto -frandom-seed=0 "$1/r.c" -o "$1/r4.o"
+' _ "$R"
+xstep "    FINDING: -flto objects DIFFER run-to-run" nonzero cmp -s "$R/r1.o" "$R/r2.o"
+xstep "    FINDING: -frandom-seed=0 does NOT make them identical on this gcc" nonzero cmp -s "$R/r3.o" "$R/r4.o"
+step "    control: the SAME TU without -flto is reproducible" sh -c '
+	set -e
+	gcc -c "$1/r.c" -o "$1/r5.o"
+	gcc -c "$1/r.c" -o "$1/r6.o"
+	cmp -s "$1/r5.o" "$1/r6.o"
+' _ "$R"
+
+step "11. __FILE__ takes the path AS WRITTEN" sh -c '
+	set -e
+	printf "const char *p=__FILE__;\n" > "$1/fi.c"
+	printf "absolute invocation: "; gcc -E "$1/fi.c" | tail -1
+	cd "$1"
+	printf "relative invocation: "; gcc -E fi.c | tail -1
+	printf "relative + -ffile-prefix-map (no effect, path is already relative): "
+	gcc -E -ffile-prefix-map="$1=/X" fi.c | tail -1
+' _ "$R"
+
+probe_summary

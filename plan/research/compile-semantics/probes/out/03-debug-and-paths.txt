@@ -1,63 +1,154 @@
-===== 1. -g, compiled from cwd=src with relative source =====
-  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/a.o:
+
+===== STEP: readelf is present (the probe needs it; a missing tool is a FAIL, not a skip)
+----- $ sh -c command -v readelf
+/usr/bin/readelf
+----- RESULT: PASS (exit 0)
+
+===== STEP: 1. -g, cwd=src, relative source
+----- $ gcc -g -c hello.c -o /tmp/tmp.Oi7lK06pNi/a.o
+----- RESULT: PASS (exit 0)
+
+===== STEP:    inspect
+----- $ dump /tmp/tmp.Oi7lK06pNi/a.o
+--- DW_AT_name / DW_AT_comp_dir / DW_AT_producer of /tmp/tmp.Oi7lK06pNi/a.o ---
     <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
     <12>   DW_AT_name        : (indirect line string, offset: 0): hello.c
     <16>   DW_AT_comp_dir    : (indirect line string, offset: 0x8): /home/user/api-cache/plan/research/compile-semantics/probes/src
-    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
-    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
-    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
-===== 2. -g, compiled from parent cwd with relative path src/hello.c =====
-  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/b.o:
+--- end ---
+----- RESULT: PASS (exit 0)
+
+===== STEP: 2. -g, cwd=parent, source 'src/hello.c'
+----- $ sh -c cd .. && gcc -g -c src/hello.c -o "$1/b.o" _ /tmp/tmp.Oi7lK06pNi
+----- RESULT: PASS (exit 0)
+
+===== STEP:    inspect
+----- $ dump /tmp/tmp.Oi7lK06pNi/b.o
+--- DW_AT_name / DW_AT_comp_dir / DW_AT_producer of /tmp/tmp.Oi7lK06pNi/b.o ---
     <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
     <12>   DW_AT_name        : (indirect line string, offset: 0x3c): src/hello.c
     <16>   DW_AT_comp_dir    : (indirect line string, offset: 0): /home/user/api-cache/plan/research/compile-semantics/probes
-    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
-    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
-    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
-  byte-identical to (1)? 
-  NO
-===== 3. -g with absolute source path =====
-  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/c.o:
+--- end ---
+----- RESULT: PASS (exit 0)
+
+===== STEP (expects exit nonzero):    (1) and (2) must DIFFER: comp_dir and DW_AT_name both moved
+----- $ cmp -s /tmp/tmp.Oi7lK06pNi/a.o /tmp/tmp.Oi7lK06pNi/b.o
+----- RESULT: PASS (exit 1, non-zero as expected)
+
+===== STEP: 3. -g with an ABSOLUTE source path
+----- $ gcc -g -c /home/user/api-cache/plan/research/compile-semantics/probes/src/hello.c -o /tmp/tmp.Oi7lK06pNi/c.o
+----- RESULT: PASS (exit 0)
+
+===== STEP:    inspect
+----- $ dump /tmp/tmp.Oi7lK06pNi/c.o
+--- DW_AT_name / DW_AT_comp_dir / DW_AT_producer of /tmp/tmp.Oi7lK06pNi/c.o ---
     <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
     <12>   DW_AT_name        : (indirect line string, offset: 0x40): /home/user/api-cache/plan/research/compile-semantics/probes/src/hello.c
     <16>   DW_AT_comp_dir    : (indirect line string, offset: 0): /home/user/api-cache/plan/research/compile-semantics/probes/src
-    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
-    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
-    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
-===== 4. -g -fdebug-prefix-map=$PWD=/proj =====
-  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/d.o:
+--- end ---
+----- RESULT: PASS (exit 0)
+
+===== STEP: 4. -g -fdebug-prefix-map=$PWD=/proj
+----- $ gcc -g -fdebug-prefix-map=/home/user/api-cache/plan/research/compile-semantics/probes/src=/proj -c /home/user/api-cache/plan/research/compile-semantics/probes/src/hello.c -o /tmp/tmp.Oi7lK06pNi/d.o
+----- RESULT: PASS (exit 0)
+
+===== STEP:    inspect
+----- $ dump /tmp/tmp.Oi7lK06pNi/d.o
+--- DW_AT_name / DW_AT_comp_dir / DW_AT_producer of /tmp/tmp.Oi7lK06pNi/d.o ---
     <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
     <12>   DW_AT_name        : (indirect line string, offset: 0x6): /proj/hello.c
     <16>   DW_AT_comp_dir    : (indirect line string, offset: 0): /proj
-    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
-    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
-    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
-===== 5. -g -ffile-prefix-map=$PWD=/proj (also rewrites __FILE__) =====
-  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/e.o:
+--- end ---
+----- RESULT: PASS (exit 0)
+
+===== STEP: 5. -g -ffile-prefix-map=$PWD=/proj
+----- $ gcc -g -ffile-prefix-map=/home/user/api-cache/plan/research/compile-semantics/probes/src=/proj -c /home/user/api-cache/plan/research/compile-semantics/probes/src/hello.c -o /tmp/tmp.Oi7lK06pNi/e.o
+----- RESULT: PASS (exit 0)
+
+===== STEP:    inspect
+----- $ dump /tmp/tmp.Oi7lK06pNi/e.o
+--- DW_AT_name / DW_AT_comp_dir / DW_AT_producer of /tmp/tmp.Oi7lK06pNi/e.o ---
     <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
     <12>   DW_AT_name        : (indirect line string, offset: 0x6): /proj/hello.c
     <16>   DW_AT_comp_dir    : (indirect line string, offset: 0): /proj
-    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
-    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
-    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
-===== 6. clang -g -fdebug-compilation-dir=/proj =====
-  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/f.o:
+--- end ---
+----- RESULT: PASS (exit 0)
+
+===== STEP: 6. clang -g -fdebug-compilation-dir=/proj
+----- $ clang -g -fdebug-compilation-dir=/proj -c hello.c -o /tmp/tmp.Oi7lK06pNi/f.o
+----- RESULT: PASS (exit 0)
+
+===== STEP:    inspect
+----- $ dump /tmp/tmp.Oi7lK06pNi/f.o
+--- DW_AT_name / DW_AT_comp_dir / DW_AT_producer of /tmp/tmp.Oi7lK06pNi/f.o ---
     <d>   DW_AT_producer    : (indexed string: 0): Ubuntu clang version 18.1.3 (1ubuntu1)
     <10>   DW_AT_name        : (indexed string: 0x1): hello.c
     <19>   DW_AT_comp_dir    : (indexed string: 0x2): /proj
-    <3a>   DW_AT_name        : (indexed string: 0x3): char
-    <3e>   DW_AT_name        : (indexed string: 0x4): __ARRAY_SIZE_TYPE__
-    <5f>   DW_AT_name        : (indexed string: 0x5): main
-===== 7. determinism: same argv twice, byte compare (no -g) =====
-  identical
-===== 8. determinism with -g =====
-  identical
-===== 9. does the -o NAME leak into the .o? (same input, two -o names) =====
-  identical -> -o name not embedded
-===== 10. -frandom-seed effect (C++ with anon namespace / static) =====
-  -flto .o DIFFER (random seed)
-  -frandom-seed=0 DIFFER
-===== 11. __FILE__ value under relative vs absolute invocation =====
-const char *p="/tmp/tmp.m61dNG0CYF/fi.c";
-const char *p="fi.c";
-const char *p="fi.c";
+--- end ---
+----- RESULT: PASS (exit 0)
+
+===== STEP: 7. determinism, -O2 (no -g): compile twice
+----- $ sh -c gcc -O2 -c hello.c -o "$1/g1.o" && gcc -O2 -c hello.c -o "$1/g2.o" _ /tmp/tmp.Oi7lK06pNi
+----- RESULT: PASS (exit 0)
+
+===== STEP:    the two objects must be IDENTICAL
+----- $ cmp -s /tmp/tmp.Oi7lK06pNi/g1.o /tmp/tmp.Oi7lK06pNi/g2.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: 8. determinism, -O2 -g: compile twice
+----- $ sh -c gcc -O2 -g -c hello.c -o "$1/h1.o" && gcc -O2 -g -c hello.c -o "$1/h2.o" _ /tmp/tmp.Oi7lK06pNi
+----- RESULT: PASS (exit 0)
+
+===== STEP:    the two objects must be IDENTICAL
+----- $ cmp -s /tmp/tmp.Oi7lK06pNi/h1.o /tmp/tmp.Oi7lK06pNi/h2.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: 9. the -o NAME must NOT leak into the object
+----- $ sh -c gcc -g -O2 -c hello.c -o "$1/name1.o" && gcc -g -O2 -c hello.c -o "$1/name2.o" && cmp -s "$1/name1.o" "$1/name2.o" _ /tmp/tmp.Oi7lK06pNi
+----- RESULT: PASS (exit 0)
+
+===== STEP: 10. LTO bitcode reproducibility: compile the same TU twice with -flto
+----- $ sh -c 
+	set -e
+	printf "static int f(void){return 1;}\nint g(void){return f();}\n" > "$1/r.c"
+	gcc -c -flto "$1/r.c" -o "$1/r1.o"
+	gcc -c -flto "$1/r.c" -o "$1/r2.o"
+	gcc -c -flto -frandom-seed=0 "$1/r.c" -o "$1/r3.o"
+	gcc -c -flto -frandom-seed=0 "$1/r.c" -o "$1/r4.o"
+ _ /tmp/tmp.Oi7lK06pNi
+----- RESULT: PASS (exit 0)
+
+===== STEP (expects exit nonzero):     FINDING: -flto objects DIFFER run-to-run
+----- $ cmp -s /tmp/tmp.Oi7lK06pNi/r1.o /tmp/tmp.Oi7lK06pNi/r2.o
+----- RESULT: PASS (exit 1, non-zero as expected)
+
+===== STEP (expects exit nonzero):     FINDING: -frandom-seed=0 does NOT make them identical on this gcc
+----- $ cmp -s /tmp/tmp.Oi7lK06pNi/r3.o /tmp/tmp.Oi7lK06pNi/r4.o
+----- RESULT: PASS (exit 1, non-zero as expected)
+
+===== STEP:     control: the SAME TU without -flto is reproducible
+----- $ sh -c 
+	set -e
+	gcc -c "$1/r.c" -o "$1/r5.o"
+	gcc -c "$1/r.c" -o "$1/r6.o"
+	cmp -s "$1/r5.o" "$1/r6.o"
+ _ /tmp/tmp.Oi7lK06pNi
+----- RESULT: PASS (exit 0)
+
+===== STEP: 11. __FILE__ takes the path AS WRITTEN
+----- $ sh -c 
+	set -e
+	printf "const char *p=__FILE__;\n" > "$1/fi.c"
+	printf "absolute invocation: "; gcc -E "$1/fi.c" | tail -1
+	cd "$1"
+	printf "relative invocation: "; gcc -E fi.c | tail -1
+	printf "relative + -ffile-prefix-map (no effect, path is already relative): "
+	gcc -E -ffile-prefix-map="$1=/X" fi.c | tail -1
+ _ /tmp/tmp.Oi7lK06pNi
+absolute invocation: const char *p="/tmp/tmp.Oi7lK06pNi/fi.c";
+relative invocation: const char *p="fi.c";
+relative + -ffile-prefix-map (no effect, path is already relative): const char *p="fi.c";
+----- RESULT: PASS (exit 0)
+
+=========================================================
+PROBE SUMMARY: 24 steps, 0 FAILURES
+=========================================================
