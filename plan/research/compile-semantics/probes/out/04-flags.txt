@@ -1,0 +1,52 @@
+===== -march=native expansion via -### -E - (ccache's technique) =====
+/cc1 -E -quiet -imultiarch x86_64-linux-gnu - "-march=cascadelake" -mmmx -mpopcnt -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -mno-sse4a -mno-fma4 -mno-xop -mfma -mavx512f -mbmi -mbmi2 -maes -mpclmul -mavx512vl -mavx512bw -mavx512dq -mavx512cd -mno-avx512er -mno-avx512pf -mno-avx512vbmi -mno-avx512ifma -mno-avx5124vnniw -mno-avx5124fmaps -mno-avx512vpopcntdq -mno-avx512vbmi2 -mno-gfni -mno-vpclmulqdq -mavx512vnni -mno-avx512bitalg -mno-avx512bf16 -mno-avx512vp2intersect -mno-3dnow -madx -mabm -mno-cldemote -mclflushopt -mclwb -mno-clzero -mcx16 -mno-enqcmd -mf16c -mfsgsbase -mfxsr -mhle -msahf -mno-lwp -mlzcnt -mmovbe -mno-movdir64b -mno-movdiri -mno-mwaitx -mno-pconfig -mno-pku -mno-prefetchwt1 -mprfchw -mno-ptwrite -mno-rdpid -mrdrnd -mrdseed -mrtm -mno-serialize -mno-sgx -mno-sha -mno-shstk -mno-tbm -mno-tsxldtrk -mno-vaes -mno-waitpkg -mno-wbnoinvd -mxsave -mxsavec -mx
+-- clang --
+"-cc1" "-triple" "x86_64-pc-linux-gnu" "-E" "-disable-free" "-clear-ast-before-backend" "-disable-llvm-verifier" "-discard-value-names" "-main-file-name" "-" "-mrelocation-model" "pic" "-pic-level" "2" "-pic-is-pie" "-mframe-pointer=all" "-fmath-errno" "-ffp-contract=on" "-fno-rounding-math" "-mconstructor-aliases" "-funwind-tables=2" "-target-cpu" "cascadelake" "-target-feature" "+prfchw" "-target-feature" "-cldemote" "-target-feature" "+avx" "-target-feature" "+aes" "-target-feature" "+sahf" "-target-feature" "+pclmul" "-target-feature" "-xop" "-target-feature" "+crc32" "-target-feature" "+x
+
+===== diagnostics colour: piped vs. forced =====
+-- default (stderr is a pipe) --
+/tmp/tmp.IwLzsN7336/bad.c: In function 'main':
+/tmp/tmp.IwLzsN7336/bad.c:1:30: error: 'y' undeclared (first use in this function)
+    1 | int main(void){int x; return y;}
+      |                              ^
+-- -fdiagnostics-color=always --
+^[[01m^[[K/tmp/tmp.IwLzsN7336/bad.c:^[[m^[[K In function '^[[01m^[[Kmain^[[m^[[K':
+^[[01m^[[K/tmp/tmp.IwLzsN7336/bad.c:1:30:^[[m^[[K ^[[01;31m^[[Kerror: ^[[m^[[K'^[[01m^[[Ky^[[m^[[K' undeclared (first use in this function)
+    1 | int main(void){int x; return ^[[01;31m^[[Ky^[[m^[[K;}
+      |                              ^[[01;31m^[[K^^[[m^[[K
+
+===== -gsplit-dwarf outputs =====
+bad.c
+sd.dwo
+sd.o
+===== --coverage outputs =====
+cov.gcno
+cov.o
+===== -fsyntax-only: does it write -o? =====
+exit=0
+ls: cannot access 'syn.o': No such file or directory
+===== -o - (stdout) =====
+0000000   A   s   s   e   m   b   l   e   r       m   e   s   s   a   g
+0000020   e   s   :  \n   F   a   t   a   l       e   r   r   o   r   :
+===== -E -o - and -S =====
+	.file	"hello.c"
+	.text
+	.section	.rodata
+===== response file (@file), nested =====
+/tmp/tmp.IwLzsN7336/rsp.o
+nested response file OK
+-- response file quoting rules --
+quoted rsp OK
+===== PCH (.gch) =====
+local.h:1:9: warning: #pragma once in main file
+    1 | #pragma once
+      |         ^~~~
+local.h.gch
+! local.h.gch
+ u.c
+===== -fpch-preprocess marker in -E output =====
+7:#pragma GCC pch_preprocess "local.h.gch"
+===== stdin source: -x c - =====
+stdin compile OK -> object 1224 bytes
+===== -MD with -x c - (stdin) : dep target name =====
+/tmp/tmp.IwLzsN7336/stdin.o: /usr/include/stdc-predef.h
