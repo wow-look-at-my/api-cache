@@ -1,0 +1,81 @@
+# storage-protocol — status
+
+Written on resumption, after reading every file in this directory and
+`.github/workflows/storage-protocol.yml`. It records what the previous session
+finished before it was killed, and what this session had left to do. It is kept
+after completion so the gap and its fix stay visible.
+
+## Finished before the interruption
+
+**All six prose deliverables are written and self-consistent.**
+
+| file | lines | state |
+|---|---|---|
+| `README.md` | 151 | index, 25-point summary, trade-off table, open questions |
+| `local-layout.md` | 498 | ccache, sccache, Bazel/bazel-remote, go-s3-server; container-vs-CAS; lookup/restore/hash measurements; atomicity and platform notes |
+| `container-format.md` | 455 | tar, ccache `.R`, hand-rolled ACE1 framing, zip, binpazer; framing overhead, single-member read, pack/unpack, the streaming gap |
+| `compression.md` | 339 | zstd/lz4/s2/none on real `-g -O2` objects; ratio, encode, decode, wall clock, the codec-instance trap |
+| `remote-protocols.md` | 429 | go-s3-server native, bazel-remote HTTP, REAPI v2, ccache HTTP/Redis/helper, sccache, Gradle, Nx/Turborepo/GHA; one-mux question; AC/CAS |
+| `consistency-and-safety.md` | 330 | read-after-write, concurrent writers, corruption, poisoning, eviction, index staleness |
+
+**The probe suite is complete and runs clean.** `probes/` holds
+`readcost_test.go`, `compress_test.go`, `container_test.go`,
+`restore_test.go` (Linux-only syscalls), `restore_portable_test.go` (every
+platform), `restore_darwin_test.go` (APFS `clonefile(2)`),
+`binpazer/binpazer_test.go` (separate module, `replace` onto the
+`refs/bin-file-fmt` submodule), `cmd/benchreport`, `run.sh`, `gen-testdata.sh`
+and the C/C++ corpus sources. No probe skips silently: a missing corpus file is
+fatal and an unsupported filesystem capability is a stated verdict
+(`TestReflinkSupport`, `TestClonefileSupport`).
+
+**The workflow is complete.** Three-OS matrix, `submodules: true`, public
+actions only, no `continue-on-error`, no `|| true`, `if-no-files-found: error`,
+the required `concurrency` group, and a push trigger scoped to
+`storage-protocol*.yml` plus this directory's `TRIGGER`.
+
+**Two CI artifact sets are committed**, both from run
+[34728376981](https://github.com/wow-look-at-my/api-cache/actions/runs/34728376981)
+(commit `2b3e8057`, 2026-09-13T00:35Z):
+`probes/ci-results-ubuntu-latest/` and `probes/ci-results-windows-latest/`.
+
+**Sandbox numbers are quarantined.** `probes/results/README.txt` labels them
+noisy and superseded, exactly as the rules require.
+
+## Not finished — the gap this session closed
+
+1. **No macOS results exist anywhere.** `README.md` cites
+   `probes/ci-results-macos-latest/` in its machine table and in its open
+   questions. That directory was never created: a dangling reference.
+2. **The committed artifacts predate the portable restore probe.**
+   `restore_portable_test.go` was written at 00:44:59Z; run 34728376981 started
+   at 00:35:58Z. `ci-results-windows-latest/PROVENANCE.txt` says so in as many
+   words. There are therefore **no Windows and no macOS restore numbers** in the
+   committed evidence — only Linux ones, from `restore_test.go`.
+3. **The `clonefile(2)` probe has never executed.** `restore_darwin_test.go`
+   was written at 00:50:52Z. The last run this worker started came from the
+   `TRIGGER` timestamp 00:45:10Z. The single open question the README calls out
+   by name is unmeasured.
+4. **Two later successful runs were never harvested.** Runs
+   [34728776086](https://github.com/wow-look-at-my/api-cache/actions/runs/34728776086)
+   and
+   [34728859239](https://github.com/wow-look-at-my/api-cache/actions/runs/34728859239)
+   both went green on all three runners, but the session died before their
+   artifacts were pulled into the tree. Both still predate
+   `restore_darwin_test.go`, so harvesting them would leave gap 3 open; a fresh
+   run supersedes all three.
+5. **Every `[ci]` figure quoted in the prose is a run-34728376981 figure.** Once
+   a fresh run lands, the provenance URLs and any figure it moves have to be
+   re-checked rather than assumed stable.
+
+## Plan for this session
+
+1. Write this file and commit. *(done first, before any other work.)*
+2. Compile-check every probe for all three `GOOS` values locally — build proof
+   only, never a quoted number.
+3. Stamp `TRIGGER` and push; one run, all three runners, including the darwin
+   clonefile probe for the first time.
+4. Harvest all three artifacts into `probes/ci-results-<runner>/`, each with a
+   `PROVENANCE.txt` naming the run URL, the commit and the machine.
+5. Fold the macOS and portable-restore numbers into `local-layout.md`,
+   `container-format.md`, `compression.md` and `README.md`; refresh the
+   provenance URLs; settle or restate the `clonefile` open question.
