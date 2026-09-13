@@ -60,7 +60,7 @@ The pipeline, with the engine primitive each stage uses. The names are the ones 
 8. **Result lookup.** Local store first. On a local miss, the remote client asks the remote, if one is configured and the policy allows reads.
 9. **Hit.** Restore every output by the platform's restore method, replay stdout and stderr verbatim with colour stripped when the caller's stream is not a terminal, rewrite the dependency target if the invocation asked for a different one, regenerate `/showIncludes` lines with depth, and exit with the stored code.
 10. **Miss.** Run the tool with the recursion guard set, colour forced on, and the rule's unset-around-child list applied. Check inputs for the "too new" race. Capture the declared outputs, derived siblings, both streams and the exit code. A non-zero exit stores nothing and exits with that code.
-11. **Store.** Assemble the entry in the scratch directory, checksum it, rename into the local store, add the manifest candidate, and hand the entry to the remote client (spooled or synchronous per policy).
+11. **Store.** Assemble the entry in the scratch directory, CRC each block, rename into the local store, add the manifest candidate, and hand the entry to the remote client (spooled or synchronous per policy).
 12. **Report.** One line in the per-cache-dir log with the outcome, the reason, and the timings of each stage. The stats counters move. A bypass with an unclassified argument prints the loud warning on first occurrence.
 
 Hit and miss share every step except 9 and 10, which is api-mirror's "hit and miss share one path" rule (`plan/research/dsl-survey/api-mirror-language.md` §8, pattern 9): the observable result never depends on cache state.

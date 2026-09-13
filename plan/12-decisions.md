@@ -32,7 +32,7 @@ Options: binpazer; a fixed-width framed format; tar; zip.
 
 Evidence: `04-local-store.md`, `plan/research/storage-protocol/container-format.md`. binpazer costs 1.5x to 3x a fixed table's single-member read and 60x its allocations, under 15% of the restore that follows; it brings per-block codecs, per-block CRC, a spec, and C readers. tar has no index and 6x the framing. The streaming-writer gap and the codec-instance trap are known and handled.
 
-**Recommended: binpazer**, with pooled codecs, sized reads, one whole-entry CRC rather than per-block, and a raw-file escape for clone and link restore.
+**Recommended: binpazer**, with pooled codecs, sized reads, binpazer's per-block CRC (the only integrity the format has; ~40 µs on the miss path, verification only on a hit), and a raw-file escape for clone and link restore.
 
 ## 5. Daemon and C client, later
 

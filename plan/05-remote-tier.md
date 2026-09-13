@@ -79,7 +79,7 @@ The surveyed tools are unanimous: a remote cache is trusted, and anyone who can 
 
 1. Read and write credential classes, with write reserved for CI. This is the control.
 2. A namespace and format version in every key, so a bad generation can be evicted wholesale with `api-cache serve evict --namespace`.
-3. Integrity on every read: one CRC-32C per entry, checked before decode, on the server and in the client.
+3. Integrity on every read: binpazer's per-block CRC-32C, checked before decode, on the server and in the client.
 4. Provenance written server-side, unreadable client-side.
 5. The content-equal diagnostic above.
 6. Roles, not paths, in the entry directory, so a hostile entry cannot direct a restore outside the invocation's own output paths.
