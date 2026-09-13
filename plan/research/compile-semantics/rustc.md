@@ -5,6 +5,10 @@ buildcache `src/wrappers/rust_wrapper.cpp` (**zlib**, 893 lines, whose header co
 it "is inspired heavily by the rules that sccache follows"); probes `out/05-rustc.txt` and
 `out/06-rustc-wrapper.txt` against `rustc 1.94.1` / `cargo` on this machine.
 
+> **Provenance.** Measurements come from `probes/run-05-rustc.sh` and
+> `probes/run-06-rustc-wrapper.sh`; re-run both via `probes/run-all.sh`, which fails loudly
+> on any failed step. Everything else is cited to sccache or buildcache source.
+
 The headline difference from C: **the unit of caching is a whole crate, not a
 translation unit.** There is no preprocessor, so there is no preprocessor mode. rustc
 caching is *direct mode only* — buildcache literally declares the capability

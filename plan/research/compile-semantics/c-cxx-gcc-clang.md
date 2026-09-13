@@ -4,6 +4,12 @@ Scope: what a correct compiler-cache wrapper must do for a `gcc`/`g++`/`clang`/`
 invocation. Every claim is either (a) cited to a source I read, or (b) measured by a probe
 under `probes/`, named inline.
 
+> **Provenance.** Re-run every measurement with `probes/run-all.sh`; it exits non-zero if
+> any step fails and each probe ends with a `PROBE SUMMARY: N steps, M FAILURES` line. No
+> probe uses `|| true`, a missing tool is a recorded FAIL rather than a skip, and
+> `probes/README.md` lists what was **not** probed (MSVC, nvcc, GOCACHEPROG end-to-end)
+> and the exact tool versions these results came from.
+
 ## Sources and their licences
 
 | Source | Licence | How it may be used |

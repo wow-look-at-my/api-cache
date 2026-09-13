@@ -24,45 +24,45 @@ EOF
 		printf "#!/bin/sh\necho \"%s argv: \$*\" >> \"%s/wraplog.txt\"\nexec \"\$@\"\n" "$w" "$1" > "$1/$w.sh"
 		chmod +x "$1/$w.sh"
 	done
- _ /tmp/tmp.6ULLQigCmV
+ _ /tmp/tmp.lg7XyQlYNv
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: cargo build with BOTH wrappers set
 ----- $ sh -c 
 	cd "$1/proj"
 	RUSTC_WRAPPER="$1/w1.sh" RUSTC_WORKSPACE_WRAPPER="$1/w2.sh" cargo build --offline 2>&1 | tail -2
- _ /tmp/tmp.6ULLQigCmV
-   Compiling wraptest v0.1.0 (/tmp/tmp.6ULLQigCmV/proj)
+ _ /tmp/tmp.lg7XyQlYNv
+   Compiling wraptest v0.1.0 (/tmp/tmp.lg7XyQlYNv/proj)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: expect a wrapper log to exist
------ $ test -s /tmp/tmp.6ULLQigCmV/wraplog.txt
+----- $ test -s /tmp/tmp.lg7XyQlYNv/wraplog.txt
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: FINDING: the composition is  $RUSTC_WRAPPER $RUSTC_WORKSPACE_WRAPPER $rustc <args>
------ $ sh -c cut -c1-150 "$1/wraplog.txt" _ /tmp/tmp.6ULLQigCmV
-w1 argv: /tmp/tmp.6ULLQigCmV/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
+----- $ sh -c cut -c1-150 "$1/wraplog.txt" _ /tmp/tmp.lg7XyQlYNv
+w1 argv: /tmp/tmp.lg7XyQlYNv/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
 w2 argv: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
-w1 argv: /tmp/tmp.6ULLQigCmV/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc - --crate-name ___ --print=file-names --crate-ty
+w1 argv: /tmp/tmp.lg7XyQlYNv/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc - --crate-name ___ --print=file-names --crate-ty
 w2 argv: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc - --crate-name ___ --print=file-names --crate-type bin --crate-type rlib -
-w1 argv: /tmp/tmp.6ULLQigCmV/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
+w1 argv: /tmp/tmp.lg7XyQlYNv/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
 w2 argv: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc -vV
-w1 argv: /tmp/tmp.6ULLQigCmV/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name wraptest --edition=2021 src/main.rs
+w1 argv: /tmp/tmp.lg7XyQlYNv/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name wraptest --edition=2021 src/main.rs
 w2 argv: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name wraptest --edition=2021 src/main.rs --error-format=json --jso
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: FINDING: cargo also routes its own PROBES through the wrapper (-vV, --print=file-names)
------ $ sh -c grep -c -e "-vV" -e "--print=file-names" "$1/wraplog.txt" _ /tmp/tmp.6ULLQigCmV
+----- $ sh -c grep -c -e "-vV" -e "--print=file-names" "$1/wraplog.txt" _ /tmp/tmp.lg7XyQlYNv
 6
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: the real compile argv, in full (note -C incremental: NOT cacheable by default)
------ $ sh -c grep -- "--crate-name wraptest" "$1/wraplog.txt" | head -1 | fold -w 150 _ /tmp/tmp.6ULLQigCmV
-w1 argv: /tmp/tmp.6ULLQigCmV/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name wraptest --edition=2021 src/main.rs
+----- $ sh -c grep -- "--crate-name wraptest" "$1/wraplog.txt" | head -1 | fold -w 150 _ /tmp/tmp.lg7XyQlYNv
+w1 argv: /tmp/tmp.lg7XyQlYNv/w2.sh /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name wraptest --edition=2021 src/main.rs
  --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=
-2 --check-cfg cfg(docsrs,test) --check-cfg cfg(feature, values()) -C metadata=7443446910e8ea06 -C extra-filename=-01c4932887f51861 --out-dir /tmp/tmp.
-6ULLQigCmV/proj/target/debug/deps -C incremental=/tmp/tmp.6ULLQigCmV/proj/target/debug/incremental -L dependency=/tmp/tmp.6ULLQigCmV/proj/target/debug
+2 --check-cfg cfg(docsrs,test) --check-cfg cfg(feature, values()) -C metadata=7a66889f645a7f05 -C extra-filename=-c89de8b16114c687 --out-dir /tmp/tmp.
+lg7XyQlYNv/proj/target/debug/deps -C incremental=/tmp/tmp.lg7XyQlYNv/proj/target/debug/incremental -L dependency=/tmp/tmp.lg7XyQlYNv/proj/target/debug
 /deps
 ----- RESULT: PASS (exit 0)
 

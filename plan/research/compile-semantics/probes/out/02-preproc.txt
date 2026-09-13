@@ -44,7 +44,7 @@ typedef unsigned int __u_int;
 ===== STEP: __DATE__ / __TIME__ / __FILE__ / __TIMESTAMP__ expansion
 ----- $ sh -c gcc -E -P timey.c | tail -2
 
-int main(void){ printf("%s %s %s %s\n", "Sep 13 2026", "00:36:42", "timey.c", "Sun Sep 13 00:06:49 2026"); return 0; }
+int main(void){ printf("%s %s %s %s\n", "Sep 13 2026", "00:38:50", "timey.c", "Sun Sep 13 00:06:49 2026"); return 0; }
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: stability: the same -E run twice must hash identically
