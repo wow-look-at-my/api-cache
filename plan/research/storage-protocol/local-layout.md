@@ -447,14 +447,19 @@ verdict is in "The `clonefile` verdict" below.
 
 | hash | 4 KiB | 200 KiB | 512 KiB | 5 MiB | throughput |
 |---|--:|--:|--:|--:|--:|
-| SHA-256 `[ci]` ubuntu, **with `sha_ni`** | 2.7 µs | 129 µs | 330 µs | 3,301 µs | **1,588 MB/s** |
-| SHA-256 `[ci]` windows, same silicon | 2.8 µs | 130 µs | 332 µs | 3,324 µs | 1,577 MB/s |
+| SHA-256 `[ci]` ubuntu, **with `sha_ni`** | 2.7 µs | 129 µs | 331 µs | 3,302 µs | **1,588 MB/s** |
+| SHA-256 `[ci]` windows, same silicon | 2.8 µs | 130 µs | 332 µs | 3,323 µs | 1,578 MB/s |
+| SHA-256 `[ci]` **macos, Apple M1** | 2.1 µs | 92.6 µs | 247 µs | 2,409 µs | **2,177 MB/s** |
 | SHA-256 `[sandbox]`, **no `sha_ni`** | 11.5 µs | 560 µs | 1,421 µs | 14,380 µs | **365 MB/s** |
-| CRC-32C `[ci]` | 0.17 µs | 8.9 µs | 23.2 µs | 227 µs | **23 GB/s** |
+| CRC-32C `[ci]` ubuntu | 0.17 µs | 8.7 µs | 23.2 µs | 236 µs | **23 GB/s** |
+| CRC-32C `[ci]` windows | 0.17 µs | 8.8 µs | 23.2 µs | 240 µs | **23 GB/s** |
+| CRC-32C `[ci]` **macos, Apple M1** | 0.51 µs | 26.5 µs | 67.3 µs | 753 µs | **7.2 GB/s** |
 | CRC-32C `[sandbox]` | 0.16 µs | 8.4 µs | 21.2 µs | 247 µs | **24 GB/s** |
 
 This is the single most important measurement in this document, because the
-two runners bracket the design question rather than answering it:
+runners bracket the design question rather than answering it. Adding an Apple
+M1 to the set changed the conclusion, which is the argument for having measured
+three platforms rather than one:
 
 - **The SHA-NI instruction is worth 4.3×** — 1,588 MB/s against 365 MB/s, same
   Go code, same `crypto/sha256`. Hashing a 5 MiB object costs 3.3 ms on the
@@ -464,26 +469,51 @@ two runners bracket the design question rather than answering it:
   AMD from Zen (2017) and on Intel mainstream desktop/server only from Ice Lake
   (2019) / Alder Lake; plenty of build machines and most CI VMs before that
   generation lack it, and the sandbox here is a live example.
-- **CRC-32C is machine-independent** — 21–24 GB/s on all three, because it is
-  the `crc32q` instruction and has been on every x86-64 since SSE4.2 (2008).
-  It is also the only number in this document that does not move with the
-  platform.
+- **SHA-256 is not slow on Apple silicon — it is the fastest of the four.**
+  2,177 MB/s on the M1 against 1,588 MB/s on the EPYC with SHA-NI, from the
+  same `crypto/sha256`. ARMv8's crypto extensions are mandatory on every Apple
+  core, so on that platform there is no feature to be missing. The 4.3× spread
+  is therefore **an x86 spread**, between machines that have SHA-NI and machines
+  that do not, and not a spread between architectures.
+- **CRC-32C is *not* machine-independent, and this is the finding that changed
+  with the third runner.** 21–24 GB/s on all three x86 machines, because it is
+  the `crc32q` instruction present on every x86-64 since SSE4.2 (2008) — but
+  **7.2 GB/s on the M1**, 3.2× slower. Go's `hash/crc32` has an ARM64 assembly
+  path using `CRC32CX`, so this is the hardware instruction on both; it is
+  simply not as wide on this core. The practical effect is that the *margin*
+  between an integrity checksum and a cryptographic hash collapses from 14× on
+  x86 to **3.3× on arm64** (7.2 GB/s against 2.2 GB/s).
 - ccache does not use SHA-256. It uses **BLAKE3** (`src/ccache/hash.hpp`
   includes `blake3.h`), truncated to 20 bytes. BLAKE3's published single-thread
   throughput is around 1–3 GB/s on x86-64 with AVX2 and it does not depend on a
   crypto extension. The Go ecosystem's BLAKE3 (`zeebo/blake3`, CC0/BSD-2) is
   the obvious candidate; Go's stdlib has none.
 - ccache uses **XXH3-128** for the entry checksum, not a cryptographic hash,
-  because integrity is not authenticity. CRC-32C at 24 GB/s is effectively free
-  and is what `binpazer` and go-s3-server both already use.
+  because integrity is not authenticity. CRC-32C is effectively free on x86 and
+  still cheap on arm64, and is what `binpazer` and go-s3-server both already
+  use. XXH3 is the better arm64 answer than CRC-32C if the checksum ever shows
+  up in a profile, because it is a software construction with a NEON path rather
+  than a fixed-width instruction.
 
 The split is: a **cryptographic** hash (BLAKE3) for the *key*, because the key
 is a collision-security boundary; a **fast** checksum (CRC-32C or XXH3) for
 *integrity*, because that is only catching a bad disk. The measured argument for
 BLAKE3 over SHA-256 is not that it is faster on the best machine — it is that
-it is **uniformly** fast: SHA-256 varies 4.3× with one CPU feature, and a cache
-whose per-compile cost swings by 11 ms depending on the host is hard to reason
-about.
+it is **uniformly** fast: SHA-256 varies 6× across the four machines here
+(365 MB/s to 2,177 MB/s), and a cache whose per-compile cost swings by 11 ms
+depending on the host is hard to reason about.
+
+Two caveats the third runner added, and neither is fatal to the split:
+
+1. The integrity checksum is cheap because of an instruction, and which
+   instruction is fast depends on the ISA. Budget the checksum at **arm64's**
+   7.2 GB/s, not x86's 23 GB/s: 67 µs on a 512 KiB entry rather than 23 µs,
+   against a 501 µs restore on the same machine. Still 13% of the restore, still
+   worth paying.
+2. "Never use SHA-256 for integrity" holds, but the margin that makes it
+   obvious is an x86 margin. On Apple silicon SHA-256 costs 3.3× a CRC and buys
+   authenticity; the reason not to do it is that it is 3.3× for nothing, not
+   that it is unaffordable.
 
 ## The layout decision, as a table
 
@@ -514,31 +544,52 @@ startup sweep under an exclusive flock is a complete answer to the crash case.
 **fsync.** go-s3-server fsyncs only at or above 8 MiB, on the grounds that the
 client verifies the hash. For a *local* compiler cache the same argument is
 stronger: a torn entry after a power cut is a cache miss, not a wrong answer,
-*provided* the entry carries a checksum that the read path verifies. Skipping
-fsync is worth roughly the cost of an fsync (hundreds of µs to milliseconds on
-a real disk) per store.
+*provided* the entry carries a checksum that the read path verifies. Measured,
+skipping it is worth **+7% on ext4, +356% on APFS and +966% on NTFS** at
+512 KiB — see the restore table. The ext4 figure is the one that makes fsync
+look like a rounding error, and it is the only platform where that is true.
 
 **Windows.** Measured above: every file operation costs ~10× its Linux
 equivalent on the same silicon, which is the dominant Windows fact and the
-reason the container-vs-blobs gap widens to 2.6× there. Beyond the timings:
+reason the container-vs-blobs gap widens to 2.7× there. Beyond the timings:
 
 - No xattrs. Metadata goes in a sidecar (go-s3-server's `.audit` JSON) or
   inside the container. Inside the container is strictly better here: one file,
   no orphan sidecars, no `isSidecarName` filter in the directory walk, and — at
-  19 µs per stat — one fewer file to touch.
+  22 µs per stat — one fewer file to touch.
 - `MoveFileEx(MOVEFILE_REPLACE_EXISTING)` fails if the destination is open
-  without `FILE_SHARE_DELETE`, which Go's `os.Open` does not request. A
-  concurrent reader of the old entry can therefore block a store, where POSIX
-  simply lets the old inode live on. Unlinking an open file has the same
-  problem, which makes *eviction* racy too. `restore_portable_test.go` probes
-  both (`TestRenameOverOpenFile`, `TestUnlinkOpenFile`) and records the verdict
-  per platform rather than assuming it; on Linux both succeed and the open
-  handle keeps reading the old bytes.
+  without `FILE_SHARE_DELETE`, which Go's `os.Open` does not request.
+  **Measured, not assumed** (`TestRenameOverOpenFile`): on NTFS the rename
+  returns *Access is denied*, while on ext4 and APFS it succeeds and the open
+  handle keeps reading the old bytes. A concurrent reader of the old entry can
+  therefore block a store on Windows only. A store must rename the old entry
+  aside and delete it, or retry.
+- Unlinking an open file has the same split, which makes *eviction* racy too.
+  `TestUnlinkOpenFile`: NTFS answers *the process cannot access the file because
+  it is being used by another process*; ext4 and APFS both succeed and the
+  handle keeps reading. Eviction on Windows must skip or retry an entry a reader
+  holds, and must not treat the failure as corruption.
 - `MAX_PATH` is 260 unless long paths are enabled *and* the path is prefixed
-  `\\?\`. A four-level shard plus a long cache root gets close;
-  `TestLongPath` measures where it actually breaks.
-- Hard links exist (`CreateHardLinkW`, NTFS) but the read-only-file protection
-  ccache relies on behaves differently.
+  `\\?\`. Measured (`TestLongPath`): a 356-character path works on the runner,
+  as does 324 on Linux and 368 on macOS — so long paths are enabled there.
+  That is a property of the *machine*, not of the OS, so a cache that shards
+  deeply still has to handle the failure.
+- Hard links exist (`CreateHardLinkW`, NTFS) but cost 538 µs against ext4's
+  12 µs, and the read-only-file protection ccache relies on behaves differently.
+
+**macOS and the `clonefile` verdict.** APFS is copy-on-write throughout, so
+this is the one platform where a *clone* restore — a metadata-only copy that
+stays safe to write to, unlike a hard link — should genuinely be available.
+`probes/restore_darwin_test.go` calls it and reports the verdict either way
+rather than skipping. The result is in "The `clonefile` verdict" section of
+`README.md`'s open questions and in
+`probes/ci-results-macos-latest/tables.txt`. One methodological note worth
+keeping: the first version of that probe issued `syscall.Syscall(462, ...)`,
+the BSD table number, and got `EINVAL`. That was macOS's deprecated generic
+`syscall(2)` shim refusing the number, **not** APFS refusing the clone. The
+probe now calls the real libSystem symbol through
+`golang.org/x/sys/unix.Clonefile` and reports both results, because a wrong
+answer to a capability question is worse than no answer.
 
 **NFS.** Deleting an open file leaves a `.nfsXXXX` silly-rename stub; the
 directory walk must ignore it and the unlink must tolerate `ESTALE`. ccache's
