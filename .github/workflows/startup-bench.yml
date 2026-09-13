@@ -23,10 +23,6 @@ on:
 permissions:
   contents: read
 
-# Keyed on the COMMIT, never the branch, and never cancelling. A benchmark that
-# is killed part way through produces no number at all, which is strictly worse
-# than two runs overlapping.
-
 jobs:
   bench:
     name: ${{ matrix.name }}
