@@ -4,14 +4,16 @@ What to compress a compiler-cache entry with, and whether to compress it at
 all. Three different answers are defensible depending on where the entry lives,
 and the measurements below say why.
 
-**`[ci]`** numbers are from a GitHub Actions `ubuntu-latest` runner — AMD EPYC
-7763, 4 vCPU, `sha_ni` and `avx2`, Go 1.26.8, `-benchtime 2s`; raw files in
-`probes/ci-results-ubuntu-latest/`, run
-<https://github.com/wow-look-at-my/api-cache/actions/runs/34728376981>. These
-are the ones to quote. **`[sandbox]`** is the development VM (Intel Xeon
-@2.8 GHz, no `sha_ni`), which runs many agents at once; kept only for contrast.
-Everything is `probes/compress_test.go` over the corpus built by
-`probes/gen-testdata.sh` from real `gcc`/`g++ -g -O2` output.
+Unqualified **`[ci]`** numbers are from the GitHub Actions `ubuntu-latest`
+runner — AMD EPYC 7763, 4 vCPU, `sha_ni` and `avx2`, Go 1.26.8 — with
+`[ci] windows` (same silicon, MinGW) and `[ci] macos` (**Apple M1, arm64,
+Apple clang**) beside them. All three are one run,
+<https://github.com/wow-look-at-my/api-cache/actions/runs/34729381343>
+(commit `241bdc50`, `-benchtime 2s`); raw files in
+`probes/ci-results-<runner>/`. **`[sandbox]`** is the development VM (Intel
+Xeon @2.8 GHz, no `sha_ni`), which runs many agents at once; kept only for
+contrast. Everything is `probes/compress_test.go` over the corpus built by
+`probes/gen-testdata.sh` from real `-g -O2` compiler output.
 
 ## The corpus
 
@@ -23,10 +25,30 @@ Everything is `probes/compress_test.go` over the corpus built by
 | `big.o` | template-heavy C++, `-g -O2` | 5,040,872 |
 | `mid.d` | dependency file (text) | 9,124 |
 
-Each runner's own compiler builds the corpus, so the byte counts differ
-slightly between environments (MinGW g++ on the Windows runner emits a 343 KB
-`mid.o` against GCC's 528 KB). The ratios are stable to the third decimal
-across all three.
+Each runner's own compiler builds the corpus, so the byte counts differ between
+environments — and on macOS they differ a great deal:
+
+| file | `[ci]` ubuntu (GCC) | `[ci]` windows (MinGW) | `[ci]` macos (clang) |
+|---|--:|--:|--:|
+| `small.o` | 10,232 | 6,973 | 6,296 |
+| `mid.o` | 527,880 | 343,092 | 243,888 |
+| `big_g1.o` | 1,490,416 | 1,278,766 | 423,952 |
+| `big.o` | 5,040,872 | 3,776,318 | 1,379,328 |
+| `mid.d` | 9,124 | 11,738 | **116,760** |
+
+Two things fall out that no single-platform run would have shown.
+
+**The same source is a 5.0 MB object under GCC and a 1.4 MB object under Apple
+clang** — 3.7×, from DWARF encoding alone. Entry-size budgeting is therefore a
+per-toolchain question, and "the average entry is N KB" is not a portable
+constant.
+
+**The `.d` file is 12.8× larger on macOS** (117 KB against 9 KB), because
+clang's `-MD` lists every header reached through the SDK's framework umbrella
+headers. On Linux the dependency file is a rounding error next to the object;
+on macOS it is 8% of the entry before compression. It also compresses to 0.058,
+better than anything else in the corpus, so the cost after compression is
+6.8 KB — but a design that assumes the `.d` is negligible is assuming Linux.
 
 `big.o` is 5 MB from 100 lines of C++ — that is what `-g` plus templates plus
 `<regex>` costs, and it is the shape that makes compression worth having. The
@@ -45,8 +67,8 @@ size by 3.4×**, far more than any codec choice.
 | `big.o` | 0.324 | 0.331 | 0.311 | 0.203 | 0.195 | 0.166 |
 | `mid.d` | 0.287 | 0.262 | 0.246 | 0.194 | 0.183 | 0.161 |
 
-`[ci] windows`, MinGW objects, for comparison — the *absolute* ratios move
-because the DWARF is different, the *ordering* does not:
+`[ci] windows`, MinGW objects — the *absolute* ratios move because the DWARF is
+different, the *ordering* does not:
 
 | file | lz4 | s2 | zstd-1 | zstd-3 | zstd-9 |
 |---|--:|--:|--:|--:|--:|
@@ -55,8 +77,26 @@ because the DWARF is different, the *ordering* does not:
 | `big.o` | 0.394 | 0.392 | 0.253 | 0.245 | 0.222 |
 | `mid.d` | 0.176 | 0.174 | 0.119 | 0.114 | 0.103 |
 
-The shape is consistent across every input: **zstd beats lz4/s2 by roughly
-1.6×** on objects with DWARF, and zstd-9 beats zstd-1 by another 1.15–1.25×.
+`[ci] macos`, Apple clang and Mach-O — **the least compressible of the three**:
+
+| file | lz4 | s2 | zstd-1 | zstd-3 | zstd-9 |
+|---|--:|--:|--:|--:|--:|
+| `small.o` | 0.689 | 0.682 | 0.549 | 0.516 | 0.504 |
+| `mid.o` | 0.503 | 0.500 | 0.389 | 0.372 | 0.343 |
+| `big_g1.o` | 0.557 | 0.565 | 0.401 | 0.383 | 0.364 |
+| `big.o` | 0.433 | 0.455 | 0.351 | 0.308 | 0.283 |
+| `mid.d` | 0.081 | 0.093 | **0.058** | 0.056 | 0.049 |
+
+Clang's objects are already denser — Apple clang emits fewer and smaller DWARF
+sections than GCC for this source — so there is less redundancy left for the
+codec to find. zstd-1 gets 0.234 on the GCC object and only 0.389 on the clang
+one. **Cache-capacity planning done on one toolchain will be ~1.7× optimistic
+on another**, and that is a bigger error than any codec choice in this
+document.
+
+The shape is nonetheless consistent across every input and every platform:
+**zstd beats lz4/s2 by roughly 1.3–1.6×** on objects with DWARF, and zstd-9
+beats zstd-1 by another 1.1–1.25×.
 The `.d` file — plain text, mostly repeated path prefixes — compresses better
 than any object under every codec, which is the same observation that makes
 CAS-style de-duplication of the `.d` attractive (see `local-layout.md`).
@@ -76,34 +116,52 @@ decides.
 
 | file | lz4 | s2 | s2-better | zstd-1 | zstd-3 | zstd-9 | flate-6 |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| `small.o` | 397 | 998 | 520 | 178 | 146 | 38 | 20 |
-| `mid.o` | 287 | 674 | 354 | 192 | 158 | 30 | 32 |
-| `big_g1.o` | 319 | 699 | 379 | 225 | 186 | 34 | 36 |
-| `big.o` | 334 | 736 | 373 | 225 | 197 | 29 | 36 |
-| `mid.d` | 649 | 1,591 | 814 | 311 | 259 | 72 | 45 |
+| `small.o` | 367 | 1,002 | 514 | 180 | 145 | 38 | 21 |
+| `mid.o` | 297 | 677 | 358 | 191 | 158 | 33 | 33 |
+| `big_g1.o` | 330 | 704 | 384 | 226 | 188 | 43 | 37 |
+| `big.o` | 346 | 725 | 385 | 221 | 195 | 33 | 36 |
+| `mid.d` | 690 | 1,578 | 818 | 310 | 265 | 72 | 52 |
 
 ### Decode
 
 | file | lz4 | s2 | zstd-1 | zstd-3 | zstd-9 |
 |---|--:|--:|--:|--:|--:|
-| `small.o` | 1,549 | 2,413 | 594 | 603 | 615 |
-| `mid.o` | 1,592 | 1,549 | 870 | 885 | 937 |
-| `big_g1.o` | 1,559 | 1,595 | 957 | 1,001 | 1,103 |
-| `big.o` | 1,660 | 1,636 | 974 | 1,002 | 1,083 |
-| `mid.d` | 1,982 | 4,151 | 1,076 | 931 | 999 |
+| `small.o` | 1,791 | 2,693 | 583 | 592 | 606 |
+| `mid.o` | 1,888 | 1,583 | 858 | 872 | 925 |
+| `big_g1.o` | 1,804 | 1,611 | 940 | 982 | 1,087 |
+| `big.o` | 1,916 | 1,672 | 958 | 986 | 1,068 |
+| `mid.d` | 2,397 | 4,133 | 1,017 | 918 | 990 |
 
-Memcpy baseline on the same machine: 22.2–100 GB/s depending on whether the
-buffer fits in cache. So **no codec is anywhere near memory bandwidth** — even
-lz4 decode at 1.66 GB/s is 13× slower than a `memcpy` of the same bytes.
+`[ci] macos` decode, the same code on arm64 — **everything is faster, but zstd
+much less so**:
 
-Two stable facts across both machines and all four object files:
+| file | lz4 | s2 | zstd-1 | zstd-3 | zstd-9 |
+|---|--:|--:|--:|--:|--:|
+| `small.o` | 2,614 | 3,980 | 655 | 559 | 512 |
+| `mid.o` | 2,731 | 2,301 | 704 | 843 | 849 |
+| `big_g1.o` | 1,757 | 1,923 | 686 | 724 | 739 |
+| `big.o` | 2,079 | 2,111 | 733 | 814 | 713 |
+| `mid.d` | 3,694 | 7,363 | 2,771 | 3,252 | 3,332 |
 
-- **lz4 and s2 decode at 1.5–1.7 GB/s; zstd at 0.9–1.0 GB/s.** The gap is a
-  consistent 1.6×, and it does not depend on the encode level.
+Memcpy baseline: 22.2–100 GB/s on the EPYC, 50–62 GB/s on the M1, depending on
+whether the buffer fits in cache. So **no codec is anywhere near memory
+bandwidth** — even lz4 decode at 1.9 GB/s is 12× slower than a `memcpy` of the
+same bytes.
+
+Three stable facts across all four machines and all four object files:
+
+- **lz4 and s2 decode at 1.5–2.7 GB/s; zstd at 0.6–1.0 GB/s.**
+- **The zstd-versus-lz4 decode gap is 2.2× on x86 and 3.9× on arm64.** On the
+  ubuntu runner it is 1,888 against 858 MB/s on `mid.o`; on Windows 1,602
+  against 633; on the M1 2,731 against 704. klauspost's lz4-class decoders get
+  more out of the M1 than its zstd decoder does, so **the "zstd costs 1.6× the
+  decode" rule of thumb understates the cost on Apple silicon by more than 2×.**
+  That is the one place in this document where the codec choice is meaningfully
+  platform-dependent.
 - **zstd decode speed is level-independent** — `zstd-9` decodes as fast as
   `zstd-1` or slightly faster, because a better-compressed stream has fewer
-  bytes to read. That asymmetry is what makes a slow encode affordable for
-  anything read more than a few times.
+  bytes to read. Holds on all three runners. That asymmetry is what makes a
+  slow encode affordable for anything read more than a few times.
 
 ### What the numbers mean in wall clock
 
@@ -112,27 +170,27 @@ Two stable facts across both machines and all four object files:
 | | encode | decode | stored bytes |
 |---|--:|--:|--:|
 | none | 0 | 0 | 527,880 |
-| lz4 | 1,842 µs | 332 µs | 196,256 |
-| s2 | 784 µs | 341 µs | 201,601 |
-| zstd-1 | 2,755 µs | 607 µs | 123,626 |
-| zstd-3 | 3,339 µs | 597 µs | 123,701 |
-| zstd-9 | 17,812 µs | 563 µs | 107,063 |
+| lz4 | 1,775 µs | 280 µs | 196,256 |
+| s2 | 779 µs | 334 µs | 201,601 |
+| zstd-1 | 2,768 µs | 615 µs | 123,626 |
+| zstd-3 | 3,336 µs | 606 µs | 123,701 |
+| zstd-9 | 15,764 µs | 571 µs | 107,063 |
 
 And for `big.o` (5 MB):
 
 | | encode | decode | stored bytes |
 |---|--:|--:|--:|
 | none | 0 | 0 | 5,040,872 |
-| lz4 | 15.1 ms | 3.0 ms | 1,635,438 |
-| s2 | 6.9 ms | 3.1 ms | 1,668,713 |
-| zstd-1 | 22.4 ms | 5.2 ms | 1,022,986 |
-| zstd-3 | 25.6 ms | 5.0 ms | 984,348 |
-| **zstd-9** | **171.2 ms** | 4.7 ms | 836,709 |
-| flate-6 | 142.0 ms | — | 1,001,600 |
+| lz4 | 14.6 ms | 2.6 ms | 1,635,438 |
+| s2 | 7.0 ms | 3.0 ms | 1,668,713 |
+| zstd-1 | 22.8 ms | 5.3 ms | 1,022,986 |
+| zstd-3 | 25.8 ms | 5.1 ms | 984,348 |
+| **zstd-9** | **150.9 ms** | 4.7 ms | 836,709 |
+| flate-6 | 140.8 ms | — | 1,001,600 |
 
-**zstd-9 is disqualified.** 171 ms to store one 5 MB object is longer than
-compiling the file that produced it, for 14% fewer bytes than zstd-3. ccache's
-default is level **1** for exactly this reason, and even that is 22 ms here.
+**zstd-9 is disqualified.** 151 ms to store one 5 MB object is longer than
+compiling the file that produced it, for 15% fewer bytes than zstd-3. ccache's
+default is level **1** for exactly this reason, and even that is 23 ms here.
 `SCCACHE_CACHE_ZSTD_LEVEL` defaults to **3**, which costs 3 ms more than level 1
 on `mid.o` and buys nothing (0.2343 vs 0.2342).
 
@@ -141,9 +199,9 @@ faster.** That is a klauspost-specific result — `SpeedFastest` and
 `SpeedDefault` share most of their match-finding — and it is the strongest
 single argument for level 1 as a default in Go.
 
-Decode is where the asymmetry helps: zstd decodes at ~950 MB/s regardless of
-the level it was encoded at, so a store-once/read-many entry can afford a
-slower encode. A compiler cache is store-once/read-many *in aggregate* but the
+Decode is where the asymmetry helps: zstd decodes at ~950 MB/s on x86 and
+~730 MB/s on the M1 regardless of the level it was encoded at, so a
+store-once/read-many entry can afford a slower encode. A compiler cache is store-once/read-many *in aggregate* but the
 hit rate on a fresh entry is zero — the first build pays the encode and gets
 nothing back.
 
@@ -192,17 +250,33 @@ possible server, and it pushes the CPU cost onto the client that has it.
 These are different problems and they deserve different answers.
 
 **A hot local cache is not disk-bound; it is CPU-bound and syscall-bound.**
-From `local-layout.md` `[ci]`: reading a 512 KB file from the page cache is
-26 µs. Decompressing 512 KB of zstd is 597 µs — **23× the read it replaced**.
-lz4 is 332 µs, still 13×. On a machine with a warm page cache and an SSD,
-compressing the local cache is a straight loss on the read path; it buys disk
-space and costs latency.
+From `local-layout.md` `[ci] ubuntu`: reading a 512 KB file from the page cache
+is 26 µs. Decompressing 512 KB of zstd is 615 µs — **23× the read it
+replaced**. lz4 is 280 µs, still 11×. On a machine with a warm page cache and
+an SSD, compressing the local cache is a straight loss on the read path; it
+buys disk space and costs latency.
 
 The counterweight is what happens *after* the read: writing the object back out
-costs 1,277 µs on the same machine. So a compressed restore is
-26 + 597 + 1,277 ≈ 1,900 µs against an uncompressed 26 + 1,277 ≈ 1,300 µs —
-**a 46% slowdown on the hit path, not a 23× one.** The decode is the second
+costs 1,266 µs on the same machine. So a compressed restore is
+26 + 615 + 1,266 ≈ 1,907 µs against an uncompressed 26 + 1,266 ≈ 1,292 µs —
+**a 48% slowdown on the hit path, not a 23× one.** The decode is the second
 largest term, not the first.
+
+**That ratio is far worse on the other two platforms, because their restores
+are cheaper and their decodes are not.** Same arithmetic, per runner, for a
+512 KB object with zstd:
+
+| | read | decode | restore | compressed total | raw total | penalty |
+|---|--:|--:|--:|--:|--:|--:|
+| ubuntu | 26 µs | 615 µs | 1,266 µs | 1,907 µs | 1,292 µs | **+48%** |
+| windows | 53 µs | 833 µs | 903 µs | 1,789 µs | 956 µs | **+87%** |
+| macos | 25 µs | 750 µs | 501 µs | 1,276 µs | 526 µs | **+143%** |
+
+(`decode` scaled from each runner's measured `mid.o` zstd-1 throughput.) On
+Apple silicon the decode is *larger than the restore*, so compressing the local
+cache more than doubles the hit path. **The right local codec is a per-platform
+question, and the strongest single lever is not the codec but the restore
+method: link instead of copy and the decode cannot be paid at all.**
 
 The counter-argument is cache capacity: at ratio 0.23, a 5 GiB `max_size`
 holds 4.3× as many entries, and a bigger cache has a higher hit rate. That is a
@@ -226,7 +300,7 @@ path (decode 0.6 ms against 3.2 ms of transfer). Below ~100 Mbit/s it is an
 unambiguous win in both directions.
 
 lz4 changes the LAN arithmetic: 1.8 ms to encode, saving 2.6 ms of transfer
-(196 KB instead of 528 KB), and 0.33 ms to decode. On a fast link lz4 is the
+(196 KB instead of 528 KB), and 0.28 ms to decode. On a fast link lz4 is the
 better trade; on a slow one zstd's extra 37% of ratio dominates. This is the
 case for making the codec a per-deployment setting rather than a constant, and
 for the entry format carrying the codec id rather than assuming one — which
