@@ -235,13 +235,32 @@ the only daemon configuration the numbers support, and it costs a second
 language and a protocol two implementations must agree on.
 
 **They suggest the platform changes the answer more than the language does.**
-A static C hello costs 451 µs on Linux x64 and 5,200 µs on Windows. Against
-that floor Go is 2.31x on Linux and only 1.39x on Windows, so an argument for
-rewriting in C is an argument about Linux and macOS build times, not about
-Windows ones. The lever that IS large on Windows is the import set: net/http,
-encoding/xml and text/template cost 2.2 ms per exec there against 0.22 ms on
-Linux, a quarter of the whole Windows exec, and a Go implementation controls
-that directly by not importing what it does not use.
+The cheapest exec any platform here manages costs 451 µs on Linux x64, about
+2.2 ms on macOS ARM64 and 5,200 µs on Windows. Against those floors Go is 2.31x
+on Linux, roughly 1.2x on macOS and 1.39x on Windows. An argument for rewriting
+in a native language is therefore an argument about Linux build times
+specifically; on the other two platforms the process model dominates whatever
+the wrapper is written in.
+
+The lever that IS large on macOS and Windows is the import set. net/http,
+encoding/xml and text/template cost about 2.7 ms per exec on macOS and 2.2 ms
+on Windows, against 0.22 ms on Linux — a quarter of the whole Windows exec and
+half the macOS one. A Go implementation controls that directly by not importing
+what it does not use, and it is the cheapest large win available on the two
+slowest platforms.
+
+macOS adds one constraint the others do not: **it cannot statically link.** Any
+option whose startup figure comes from a static build does not have that figure
+on macOS, where every binary is the dynamic kind.
+
+**They suggest the Go tax has a specific shape, which bounds how much of it is
+recoverable.** A Go hello makes 206 syscalls before `main` against a static C
+hello's 17, and 114 of those are `rt_sigaction` installing the runtime's signal
+handlers, with 4 more cloning scheduler threads. None of that is work the
+program chose, and no amount of careful Go removes it: it is the runtime being
+present. That is the floor a Go implementation cannot go below, and it is why
+the options that matter are the ones that avoid the config work rather than the
+ones that shave the runtime.
 
 **They suggest that if the wrapper is written natively, the link mode is not a
 detail.** Static linking is worth 30-40% in C, dynamic `<iostream>` costs as

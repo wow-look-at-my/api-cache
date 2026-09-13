@@ -44,13 +44,22 @@ Go runtime neither removes. A **static C client is 608 µs** — within noise of
 C hello that talks to nothing. Link that client dynamically and `ld.so` costs
 **190 µs**, more than twice the round trip it exists to perform.
 
-**Windows is a different problem.** A static C hello costs **5.2 ms** there
-against 451 µs on Linux: `CreateProcess` is roughly **10x** `fork`+`execve`, so
-a 10,000-file build pays ~52 s of process creation before the wrapper does
-anything. Because that floor is so tall, Go costs only **1.39x** it instead of
-2.31x, and `<iostream>` is free rather than a 2.56x penalty. The one thing that
-gets *worse* is imports: net/http + encoding/xml + text/template cost **2.2 ms**
-on Windows against 0.22 ms on Linux.
+**Windows and macOS are a different problem from Linux.** The cheapest possible
+exec costs **451 µs on Linux, ~2.2 ms on macOS, 5.2 ms on Windows** —
+`CreateProcess` is roughly 10x `fork`+`execve`, so a 10,000-file Windows build
+pays ~52 s of process creation before the wrapper does anything. Against those
+taller floors the language matters less (Go is 1.39x on Windows and ~1.2x on
+macOS, against 2.31x on Linux) and `<iostream>` is free rather than a 2.56x
+penalty. The one cost that gets *worse* is imports: net/http + encoding/xml +
+text/template cost **2.2 ms on Windows and ~2.7 ms on macOS**, against 0.22 ms
+on Linux. **macOS also cannot statically link at all**, so any design whose
+startup number depends on static linking does not have that number there.
+
+**What Go is actually spending it on:** 206 syscalls before `main` against a
+static C hello's 17, of which **114 are `rt_sigaction`** and 4 are `clone` — a
+signal-handler table and a thread pool, built on every exec, for a program that
+lives a millisecond. The import cost is invisible to `strace` (203 syscalls,
+three fewer) because package `init` is pure user-space CPU.
 
 Two more measured facts. Static linking is worth **30-40% in C on Linux** (13%
 on Windows, where the CRT DLL is usually already resident), and dynamic
@@ -69,6 +78,7 @@ slower on a machine without it.
 | [results/config-load.md](results/config-load.md) | XML parse, compile, template parse, and every cooked alternative |
 | [results/trailer.md](results/trailer.md) | trailer exec cost, trailer read cost, binpazer in Go and C |
 | [results/daemon.md](results/daemon.md) | unix-socket round trip, Go client vs C client |
+| [results/syscalls.md](results/syscalls.md) | why the floors differ: syscall counts per startup |
 | [results/hashing.md](results/hashing.md) | sha256/blake3/xxhash/crc32 throughput, x64 and ARM64 |
 | [options.md](options.md) | the options for closing the gap, each with its measured cost |
 
