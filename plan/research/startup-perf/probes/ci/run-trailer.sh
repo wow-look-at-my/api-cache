@@ -33,7 +33,7 @@ N="${BENCH_N:-400}"
 ( cd "$P/trailer/appender" && CGO_ENABLED=0 go build -o "$OUT/appender" . )
 ( cd "$P/trailer/binpazer" && CGO_ENABLED=0 go build -o "$OUT/binpazerbench" . )
 "${CC:-cc}" -O2 -I "$D/vendor/binpazer-c" -o "$OUT/binpazer-c" \
-	"$P/trailer/binpazer_c.c" "$D/vendor/binpazer-c/binpazer.c"
+	"$P/trailer/cprobe/binpazer_c.c" "$D/vendor/binpazer-c/binpazer.c"
 
 "$OUT/appender" "$OUT/trailer" "$OUT/trailer-0"   3072     > /dev/null
 "$OUT/appender" "$OUT/trailer" "$OUT/trailer-1m"  1048576  > /dev/null

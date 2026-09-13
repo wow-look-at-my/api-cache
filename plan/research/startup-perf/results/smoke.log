@@ -1,79 +1,88 @@
-# smoke test: each probe builds and exits 0. NO TIMING. Every reported number comes from GitHub Actions.
+# smoke test: each probe builds and exits 0. NO TIMING.
+# Every reported number comes from GitHub Actions; see results/*.md.
 
 ++ cd /home/user/api-cache/plan/research/startup-perf/probes/xml-parse
-++ go build -o /tmp/claude-0/smoke/xmlbench .
-++ /tmp/claude-0/smoke/xmlbench -n 2 -f /home/user/api-cache/plan/research/startup-perf/probes/fixtures/github.xml
-+++ wc -l
-++ echo 'xmlbench ok 33 lines'
-xmlbench ok 33 lines
+++ go build -o /tmp/claude-0/smoke2/xmlbench .
+++ /tmp/claude-0/smoke2/xmlbench -n 2 -f /home/user/api-cache/plan/research/startup-perf/probes/fixtures/github.xml
+++ echo 'OK xmlbench'
+OK xmlbench
 ++ cd /home/user/api-cache/plan/research/startup-perf/probes/hashing
-++ go build -tags blake3 -o /tmp/claude-0/smoke/hashbench .
-++ /tmp/claude-0/smoke/hashbench -n 2
-+++ wc -l
-++ echo 'hashbench ok 25 lines'
-hashbench ok 25 lines
+++ go build -tags blake3 -o /tmp/claude-0/smoke2/hashbench .
+++ /tmp/claude-0/smoke2/hashbench -n 2
+++ echo 'OK hashbench'
+OK hashbench
 ++ cd /home/user/api-cache/plan/research/startup-perf/probes/trailer
-++ go build -o /tmp/claude-0/smoke/trailer .
-package probe/trailer: C source files not allowed when not using cgo or SWIG: binpazer_c.c
-++ /tmp/claude-0/smoke/appender /tmp/claude-0/smoke/trailer /tmp/claude-0/smoke/trailer-0 3072
-/bin/bash: line 38: /tmp/claude-0/smoke/appender: No such file or directory
+++ go build -o /tmp/claude-0/smoke2/trailer .
+++ echo 'OK trailer builds'
+OK trailer builds
+++ cd /home/user/api-cache/plan/research/startup-perf/probes/trailer/appender
+++ go build -o /tmp/claude-0/smoke2/appender .
+++ echo 'OK appender builds'
+OK appender builds
+++ /tmp/claude-0/smoke2/appender /tmp/claude-0/smoke2/trailer /tmp/claude-0/smoke2/trailer-0 3072
+wrote /tmp/claude-0/smoke2/trailer-0 with a 3072-byte trailer
+++ chmod +x /tmp/claude-0/smoke2/trailer-0
+++ /tmp/claude-0/smoke2/trailer-0 read 2
+++ echo 'OK trailer read'
+OK trailer read
 ++ cd /home/user/api-cache/plan/research/startup-perf/probes/trailer/binpazer
-++ go build -o /tmp/claude-0/smoke/binpazerbench .
-++ gcc -O2 -I /home/user/api-cache/plan/research/startup-perf/probes/ci/vendor/binpazer-c -o /tmp/claude-0/smoke/binpazer-c /home/user/api-cache/plan/research/startup-perf/probes/trailer/binpazer_c.c /home/user/api-cache/plan/research/startup-perf/probes/ci/vendor/binpazer-c/binpazer.c
-++ echo 'binpazer-c built'
-binpazer-c built
-++ /tmp/claude-0/smoke/binpazerbench -n 2 -host /tmp/claude-0/smoke/trailer-0 -out /tmp/claude-0/smoke/cooked
-panic: open /tmp/claude-0/smoke/trailer-0: no such file or directory
-
-goroutine 1 [running]:
-main.main()
-	/home/user/api-cache/plan/research/startup-perf/probes/trailer/binpazer/main.go:203 +0xd9a
-++ /tmp/claude-0/smoke/binpazer-c /tmp/claude-0/smoke/cooked 2
-read failed rc=-1
+++ go build -o /tmp/claude-0/smoke2/binpazerbench .
+++ echo 'OK binpazerbench builds'
+OK binpazerbench builds
+++ gcc -O2 -I /home/user/api-cache/plan/research/startup-perf/probes/ci/vendor/binpazer-c -o /tmp/claude-0/smoke2/binpazer-c /home/user/api-cache/plan/research/startup-perf/probes/trailer/cprobe/binpazer_c.c /home/user/api-cache/plan/research/startup-perf/probes/ci/vendor/binpazer-c/binpazer.c
+++ echo 'OK binpazer-c builds'
+OK binpazer-c builds
+++ /tmp/claude-0/smoke2/binpazerbench -n 2 -host /tmp/claude-0/smoke2/trailer-0 -out /tmp/claude-0/smoke2/cooked
+++ echo 'OK binpazerbench'
+OK binpazerbench
+++ /tmp/claude-0/smoke2/binpazer-c /tmp/claude-0/smoke2/cooked 2
++++ cat /tmp/claude-0/smoke2/bc.txt
+++ echo 'OK binpazer-c: | C: open + footer + index + rules block | 7.2 | 7.6 | 7.4 | payload 2862 B, allocation-free reader |
+| C: open + close only | 1.0 | 1.3 | 1.1 | the syscall floor under the row above |'
+OK binpazer-c: | C: open + footer + index + rules block | 7.2 | 7.6 | 7.4 | payload 2862 B, allocation-free reader |
+| C: open + close only | 1.0 | 1.3 | 1.1 | the syscall floor under the row above |
 ++ cd /home/user/api-cache/plan/research/startup-perf/probes/ipc/server
-++ go build -o /tmp/claude-0/smoke/srv .
+++ go build -o /tmp/claude-0/smoke2/srv .
 ++ cd /home/user/api-cache/plan/research/startup-perf/probes/ipc/goclient
-++ go build -o /tmp/claude-0/smoke/gcl .
-++ gcc -O2 -o /tmp/claude-0/smoke/ccl /home/user/api-cache/plan/research/startup-perf/probes/ipc/cclient.c
-++ SP=29077
-++ /tmp/claude-0/smoke/srv /tmp/claude-0/smoke/sock
+++ go build -o /tmp/claude-0/smoke2/gcl .
+++ gcc -O2 -o /tmp/claude-0/smoke2/ccl /home/user/api-cache/plan/research/startup-perf/probes/ipc/cclient.c
+++ echo 'OK ipc builds'
+OK ipc builds
+++ SP=29971
+++ /tmp/claude-0/smoke2/srv /tmp/claude-0/smoke2/sock
 ++ sleep 1
-++ /tmp/claude-0/smoke/gcl 1 /tmp/claude-0/smoke/sock
-++ echo 'go client ok'
-go client ok
-++ /tmp/claude-0/smoke/ccl 1 /tmp/claude-0/smoke/sock
-++ echo 'c client ok'
-c client ok
-++ kill 29077
+++ /tmp/claude-0/smoke2/gcl 1 /tmp/claude-0/smoke2/sock
+++ echo 'OK go client'
+OK go client
+++ /tmp/claude-0/smoke2/ccl 1 /tmp/claude-0/smoke2/sock
+++ echo 'OK c client'
+OK c client
+++ kill 29971
 ++ cd /home/user/api-cache/plan/research/startup-perf/probes/ci
-++ go build -o /tmp/claude-0/smoke/bench ./bench.go
+++ go build -o /tmp/claude-0/smoke2/bench ./bench.go
 [1]+  Done                    $S/srv $S/sock
-++ echo 'ci bench harness builds'
-ci bench harness builds
+++ echo 'OK ci bench harness'
+OK ci bench harness
 ++ cd /home/user/api-cache/plan/research/startup-perf/probes/ci/src/gohello
-++ go build -o /tmp/claude-0/smoke/gh .
-++ /tmp/claude-0/smoke/gh
-++ echo 'ci gohello ok'
-ci gohello ok
+++ go build -o /tmp/claude-0/smoke2/gh .
+++ /tmp/claude-0/smoke2/gh
+++ echo 'OK ci gohello'
+OK ci gohello
 ++ cd /home/user/api-cache/plan/research/startup-perf/probes/ci/src/goimports
-++ go build -o /tmp/claude-0/smoke/gi .
-++ /tmp/claude-0/smoke/gi
-++ echo 'ci goimports ok'
-ci goimports ok
-++ gcc -O2 -o /tmp/claude-0/smoke/ch /home/user/api-cache/plan/research/startup-perf/probes/ci/src/hello.c
-++ /tmp/claude-0/smoke/ch
-++ echo 'ci hello.c ok'
-ci hello.c ok
-++ g++ -O2 -o /tmp/claude-0/smoke/cx /home/user/api-cache/plan/research/startup-perf/probes/ci/src/hello.cpp
-++ /tmp/claude-0/smoke/cx
-++ echo 'ci hello.cpp ok'
-ci hello.cpp ok
-++ g++ -O2 -static -o /tmp/claude-0/smoke/cxs /home/user/api-cache/plan/research/startup-perf/probes/ci/src/hello.cpp
-++ /tmp/claude-0/smoke/cxs
-++ echo 'ci hello.cpp static ok'
-ci hello.cpp static ok
-++ rustc -O -o /tmp/claude-0/smoke/rh /home/user/api-cache/plan/research/startup-perf/probes/ci/src/hello.rs
-++ /tmp/claude-0/smoke/rh
-++ echo 'ci hello.rs ok'
-ci hello.rs ok
+++ go build -o /tmp/claude-0/smoke2/gi .
+++ /tmp/claude-0/smoke2/gi
+++ echo 'OK ci goimports'
+OK ci goimports
+++ gcc -O2 -o /tmp/claude-0/smoke2/ch /home/user/api-cache/plan/research/startup-perf/probes/ci/src/hello.c
+++ /tmp/claude-0/smoke2/ch
+++ echo 'OK ci hello.c'
+OK ci hello.c
+++ g++ -O2 -static -o /tmp/claude-0/smoke2/cxs /home/user/api-cache/plan/research/startup-perf/probes/ci/src/hello.cpp
+++ /tmp/claude-0/smoke2/cxs
+++ echo 'OK ci hello.cpp static'
+OK ci hello.cpp static
+++ rustc -O -o /tmp/claude-0/smoke2/rh /home/user/api-cache/plan/research/startup-perf/probes/ci/src/hello.rs
+++ /tmp/claude-0/smoke2/rh
+++ echo 'OK ci hello.rs'
+OK ci hello.rs
 ++ set +x
