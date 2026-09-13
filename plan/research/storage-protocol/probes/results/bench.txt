@@ -74,3 +74,9 @@ BenchmarkCodecConstruct/lz4.NewReader-4                              	 2755282	 
 BenchmarkCodecConstruct/lz4.NewWriter-4                              	 2793504	       210.0 ns/op	     288 B/op	       2 allocs/op
 BenchmarkDecodeStreamVsOneShot/zstd/DecodeAll/pooled-4               	     691	    824625 ns/op	 640.10 MB/s	     295 B/op	       0 allocs/op
 BenchmarkDecodeStreamVsOneShot/zstd/NewReader-per-call/stream-4      	     542	   1089872 ns/op	 484.31 MB/s	 1311214 B/op	      27 allocs/op
+BenchmarkDecodeStreamVsOneShot/lz4/NewReader-per-call/stream-4       	     340	   1800894 ns/op	 293.10 MB/s	 8377212 B/op	       7 allocs/op
+BenchmarkDecodeStreamVsOneShot/lz4/Reset/stream-4                    	    2047	    292349 ns/op	1805.52 MB/s	    4258 B/op	       2 allocs/op
+BenchmarkContainerPack/framed-4                                      	     406	   1321909 ns/op	 438.59 MB/s	 1597569 B/op	       4 allocs/op
+BenchmarkContainerPack/tar-4                                         	     514	   1330686 ns/op	 435.69 MB/s	 1599283 B/op	      26 allocs/op
+BenchmarkContainerPack/tar+manifest-4                                	     416	   1521987 ns/op	 380.93 MB/s	 1605513 B/op	      71 allocs/op
+BenchmarkContainerPack/zipStored-4                                   	     360	   1393293 ns/op	 416.12 MB/s	 1607655 B/op	      59 allocs/op
