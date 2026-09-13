@@ -5,8 +5,15 @@
 // Linux's reflink is FICLONE (restore_test.go) and is unsupported on ext4.
 // macOS's equivalent is clonefile(2), and APFS is copy-on-write throughout, so
 // this is the one platform where a clone restore should actually be available.
-// The verdict is reported either way — an unexpected errno is printed, never
-// swallowed.
+//
+// The call goes through golang.org/x/sys/unix.Clonefile, which binds the real
+// libSystem `clonefile` symbol. An earlier version of this probe issued
+// syscall.Syscall(462, ...) instead and got EINVAL on the runner. That was the
+// deprecated generic syscall(2) shim refusing the number, not APFS refusing the
+// clone, and it would have answered this document's one named open question
+// with a measurement of the wrong thing. Both calls are made here, and both
+// verdicts are reported, so the distinction stays visible instead of being
+// re-derived by the next reader.
 package probes
 
 import (
@@ -15,13 +22,15 @@ import (
 	"syscall"
 	"testing"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
-// SYS_CLONEFILE from Darwin's <sys/syscall.h>.
-// int clonefile(const char *src, const char *dst, int flags);
+// SYS_CLONEFILE from Darwin's <sys/syscall.h>, for the contrast case only.
 const sysClonefile = 462
 
-func clonefile(src, dst string) error {
+// rawClonefile is the deprecated path: syscall(2) with the BSD table number.
+func rawClonefile(src, dst string) error {
 	s, err := syscall.BytePtrFromString(src)
 	if err != nil {
 		return err
@@ -38,24 +47,38 @@ func clonefile(src, dst string) error {
 	return nil
 }
 
+// clonefile is the real one: the libSystem symbol.
+func clonefile(src, dst string) error { return unix.Clonefile(src, dst, 0) }
+
 // TestClonefileSupport states whether this filesystem supports clonefile(2).
 // It records the answer rather than skipping, so "not measured" and
 // "unsupported" are never confused in the results.
 func TestClonefileSupport(t *testing.T) {
 	dir := t.TempDir()
 	src := portableSrc(t, dir, 512<<10)
+
+	// The contrast case first, so its errno is on the record.
+	if err := rawClonefile(src, filepath.Join(dir, "raw.o")); err != nil {
+		t.Logf("clonefile via syscall(2) number %d: FAILED (%v). Expected: the "+
+			"generic syscall shim is deprecated on macOS. This is not a "+
+			"filesystem verdict.", sysClonefile, err)
+	} else {
+		t.Logf("clonefile via syscall(2) number %d: succeeded.", sysClonefile)
+	}
+
 	dst := filepath.Join(dir, "clone.o")
 	if err := clonefile(src, dst); err != nil {
-		t.Logf("clonefile(2): NOT AVAILABLE here (%v). Clone restore is "+
-			"unavailable; an ENOSYS would mean the syscall number is wrong "+
-			"rather than the filesystem refusing.", err)
+		t.Logf("clonefile(2) via libSystem: NOT AVAILABLE here (%v). Clone "+
+			"restore is unavailable on this volume; ENOTSUP means the "+
+			"filesystem refuses, ENOSYS would mean the symbol is missing.", err)
 		return
 	}
 	st, err := os.Stat(dst)
 	if err != nil {
 		t.Fatalf("clonefile reported success but the destination is unusable: %v", err)
 	}
-	t.Logf("clonefile(2): SUPPORTED; cloned %d bytes as a copy-on-write share", st.Size())
+	t.Logf("clonefile(2) via libSystem: SUPPORTED; cloned %d bytes as a "+
+		"copy-on-write share, in %s", st.Size(), dir)
 }
 
 // BenchmarkRestoreClonefile measures the clone restore where it works.
