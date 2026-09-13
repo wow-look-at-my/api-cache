@@ -9,7 +9,6 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.27 // indirect
 )
 
-// Local development points at the read-only reference clone. CI rewrites this
-// with `go mod edit -replace` after checking the repository out; see
-// .github/workflows/storage-bench.yml.
-replace github.com/wow-look-at-my/bin-file-fmt/go => /home/user/refs/bin-file-fmt/go
+// bin-file-fmt is a git submodule at refs/bin-file-fmt (repository root).
+// The relative path works both locally and in CI.
+replace github.com/wow-look-at-my/bin-file-fmt/go => ../../../../../refs/bin-file-fmt/go

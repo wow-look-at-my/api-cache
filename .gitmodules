@@ -1,0 +1,3 @@
+[submodule "refs/bin-file-fmt"]
+	path = refs/bin-file-fmt
+	url = https://github.com/wow-look-at-my/bin-file-fmt
