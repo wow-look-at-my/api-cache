@@ -39,10 +39,6 @@ jobs:
       - name: rust toolchain
         run: rustc --version || rustup default stable
 
-      - name: msvc environment
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-
       - name: bench (unix)
         if: runner.os != 'Windows'
         shell: bash

@@ -3,6 +3,22 @@
 # Windows spelling of the static-versus-dynamic question. Every build failure
 # becomes a table row rather than aborting the job.
 $ErrorActionPreference = "Continue"
+# Put MSVC on PATH without a third-party action. vswhere ships in the Visual
+# Studio installer directory on every GitHub windows runner image, and
+# VsDevCmd.bat is the supported way to import the toolchain environment.
+$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+if (Test-Path $vswhere) {
+	$vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+	if ($vsPath) {
+		$devCmd = Join-Path $vsPath "Common7\Tools\VsDevCmd.bat"
+		# Run VsDevCmd in a cmd shell, dump the resulting environment, and
+		# import it into this PowerShell session.
+		cmd /c "`"$devCmd`" -arch=$(if ($env:RUNNER_ARCH -eq 'ARM64') {'arm64'} else {'amd64'}) -no_logo && set" | ForEach-Object {
+			if ($_ -match '^([^=]+)=(.*)$') { Set-Item -Path "env:$($matches[1])" -Value $matches[2] -ErrorAction SilentlyContinue }
+		}
+	}
+}
+
 $D   = $PSScriptRoot
 $OUT = Join-Path $D "out"
 New-Item -ItemType Directory -Force -Path $OUT | Out-Null
