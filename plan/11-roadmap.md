@@ -12,7 +12,7 @@ Out: executing anything. Phase 0 never runs a compiler.
 
 ## Phase 1 — Local cache for gcc and clang, preprocessor mode
 
-Deliverables: the local store (layout, binpazer entries, CRC, temp-and-rename, per-platform restore with the raw-file escape, compression policy, stats, eviction lifted from go-s3-server with its licence added); the process layer (tool resolution, the three recursion guards, signals, umask, exit codes, stdin passthrough); the preprocess step, key derivation with framing and salt, output capture and restore, dep-file target rewrite, colour forcing and stripping, the too-new check; the per-build log, deduplicated warnings, strict mode.
+Deliverables: the local store (layout, binpazer entries, CRC, temp-and-rename, per-platform restore with the raw-file escape, compression policy, stats, eviction lifted from go-s3-server); the process layer (tool resolution, the three recursion guards, signals, umask, exit codes, stdin passthrough); the preprocess step, key derivation with framing and salt, output capture and restore, dep-file target rewrite, colour forcing and stripping, the too-new check; the per-build log, deduplicated warnings, strict mode.
 
 Exit: the C and C++ end-to-end projects build twice with zero compiles the second time on all three platforms; the direct-hit budget is not yet in scope, but the preprocessor-mode hit is within the Go floor difference of ccache's preprocessor-mode hit on the Linux runner; the loud warning fires once per distinct cause per build.
 

@@ -84,9 +84,9 @@ Evidence: `plan/research/cache-server/index-and-prefetch.md` §5. A C++ build ha
 
 Options: (a) as-is with a key prefix; (b) extend with namespaces; (c) new server lifting the generic files.
 
-Evidence: `plan/research/cache-server/generalization.md`. (a) silently fails on the index and pays an unscoped PUT guard; (b) is a few hundred lines but adopts the repo's history; (c) is the cleanest and lifts ~2,000 lines of infrastructure. go-s3-server has no LICENSE file.
+Evidence: `plan/research/cache-server/generalization.md`. (a) silently fails on the index and pays an unscoped PUT guard; (b) is a few hundred lines but adopts the repo's history; (c) is the cleanest and lifts ~2,000 lines of infrastructure.
 
-**Recommended: (c)**, after a LICENSE is added to go-s3-server.
+**Recommended: (c).**
 
 ## 12. Upload policy
 

@@ -105,4 +105,4 @@ Every attribute is a template. The environment and command-line spellings are in
 
 ## What is lifted from go-s3-server
 
-Files, adapted rather than imported, with the licence note that go-s3-server currently ships no LICENSE file and one must be added before any copy (`plan/research/cache-server/generalization.md`, appendix): the `PutStream` shape (temp, threshold-free, rename), the `.tmp-*` startup sweep, `eviction.go`, `atime*.go`, and `lrucache.go` for the in-process memos. Not lifted: xattr metadata, the index, the guards, `compactKey`.
+Files, adapted rather than imported (go-s3-server is this org's own code): the `PutStream` shape (temp, threshold-free, rename), the `.tmp-*` startup sweep, `eviction.go`, `atime*.go`, and `lrucache.go` for the in-process memos. Not lifted: xattr metadata, the index, the guards, `compactKey`.
