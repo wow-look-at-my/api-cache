@@ -69,7 +69,7 @@ The success criterion in `00-goals.md` is measured against ccache on the same ru
 ## Per-platform notes
 
 - **Windows.** `os.Stat` is 22 µs and an open 24 µs on NTFS: the store's one-stat miss, one-open hit, and metadata-inside-the-container rules exist for this platform. The 5.2 ms process floor means a 10,000-file build pays ~52 s of process creation before any wrapper runs; nothing in the wrapper can change that, and the plan says so in the docs rather than promising Linux numbers.
-- **macOS.** Cannot statically link. Open is 9.1 µs against Linux's 5.4 µs, so the multi-blob layout is 2x worse there; the container wins. `clonefile` makes the restore 167 µs and constant in size, and forces the entry uncompressed.
+- **macOS.** Cannot statically link. Open is 9.1 µs against Linux's 5.4 µs, so the multi-blob layout is 2x worse there; the container wins. `clonefile` makes the restore 167 µs and constant in size, but forces the entry uncompressed, so it is an opt-in: on a Mac, capacity is worth the ~1 ms per hit that decompression costs.
 - **Machines without `sha_ni`.** Irrelevant once the key hash is BLAKE3; the only SHA-256 left is the Go output id.
 
 ## Instrumentation

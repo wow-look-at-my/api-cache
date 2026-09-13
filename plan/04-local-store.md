@@ -61,13 +61,17 @@ The restore is where a hit spends its time (48x the read on ext4), so it is nego
 
 | Filesystem | Method | Measured | Constraint |
 |---|---|---|---|
-| APFS | `clonefile(2)` | 167 µs at 512 KiB, constant in size, 34x faster than copy at 5 MiB, safe to write to | the object must be stored uncompressed as its own file |
+| APFS, opt-in | `clonefile(2)` | 167 µs at 512 KiB, constant in size, 34x faster than copy at 5 MiB, safe to write to | the object must be stored uncompressed as its own file; not the default because compression matters more on a Mac |
 | btrfs, XFS with reflink | `FICLONE` | not measured (no runner); expected to behave like APFS | same |
-| ext4 | read + write + rename | 1,266 µs at 512 KiB; `copy_file_range` buys nothing | none |
+| ext4 (and the default everywhere) | read + write + rename | 1,266 µs at 512 KiB; `copy_file_range` buys nothing | none |
 | NTFS | `CopyFileEx` | 903 µs at 512 KiB | none; ReFS could clone, unmeasured |
 | any, `hard-link="safe"` rule and `restore="link"` setting | `link(2)` | 12 µs ext4, 272 µs APFS, 538 µs NTFS | cache file made read-only; mtime of the visible file is bumped with a `touch` so make and ninja see fresh output; never with compression |
 
-`restore="auto"` probes once per store (a throwaway file, the way go-s3-server probes atime) and records the verdict. To make clone and link possible, the store uses ccache's raw-file escape: when the restore method is clone or link, the primary output is not embedded in the container but stored as a sibling file `<entry>_00`, and the container's `Raw` block records its role and size. The container keeps everything else.
+`restore="auto"` probes once per store (a throwaway file, the way go-s3-server probes atime) and records which methods the filesystem supports, but **the default restore is copy on every platform, because copy is the only method compatible with a compressed entry.** Clone and link are opt-in (`restore="clone"`, `restore="link"`), and choosing either forces `compress="never"`. The reason the default is not clone on APFS, despite the 34x: a Mac is the machine where storage is the scarce resource (no expansion, expensive, fast CPUs), so the 1 ms per hit that decompression costs there (~4 s on a 4,000-file build) is worth 4.3x more entries in the same budget. A user who prefers speed over space sets `restore="clone"` and gets the measured 167 µs.
+
+To make clone and link possible at all, the store uses ccache's raw-file escape: when the restore method is clone or link, the primary output is not embedded in the container but stored as a sibling file `<entry>_00`, and the container's `Raw` block records its role and size. The container keeps everything else. `clonefile` clones whole files, so a body inside a container can never be cloned; that is the whole reason for the escape.
+
+**Both, on APFS, is a follow-up to measure:** APFS supports transparent per-file compression (decmpfs, the `com.apple.decmpfs` xattr plus the `UF_COMPRESSED` flag, with lzfse or zlib payloads; what the OS uses for its own files and what `afsctool` writes). A file stored that way reads as its uncompressed bytes to every reader, the kernel decompresses on read, and `clonefile` clones the compressed extents. If a Go writer can produce a valid decmpfs file (the format is documented and has several implementations), a Mac gets compression and clone at once. Listed in `12-decisions.md` decision 15 as the measurement that would change the APFS default.
 
 ## Compression
 
@@ -75,11 +79,11 @@ The restore is where a hit spends its time (48x the read on ext4), so it is nego
 
 | Situation | Codec |
 |---|---|
-| restore by clone or link | none, mandatory |
-| restore by copy, local | zstd level 1 on outputs larger than 64 KiB; `stored` for small members; the `.d` and stderr are stored when under a few KiB |
+| restore by clone or link (opt-in) | none, mandatory |
+| restore by copy, local (the default on every platform) | zstd level 1 on outputs larger than 64 KiB; `stored` for small members; the `.d` and stderr are stored when under a few KiB |
 | remote store | the remote client's own setting, zstd-1 on a LAN, higher over a WAN; the entry carries the codec id per block so the two tiers can differ |
 
-Local compression costs +48% on the hit path on ext4, +87% on NTFS and +143% on APFS, and buys capacity. The default trades it per platform: on ext4 with a copy restore, zstd-1 (ratio 0.23 on gcc DWARF); on APFS with clone, none. `compress="always"` and `compress="never"` override. zstd-9 is disqualified (151 ms to store a 5 MB object for 15% fewer bytes than zstd-3), and in the Go zstd, level 1 and level 3 give the same ratio on this corpus.
+Local compression costs +48% on the hit path on ext4, +87% on NTFS and +143% on APFS, and buys capacity at ratio 0.23 on gcc DWARF. The default is zstd-1 everywhere: the hit-path cost is about a millisecond, the capacity is 4x, and on the platform where the cost is highest (APFS, fast CPU) storage is also the scarcest. `compress="never"` opts out; `restore="clone"` or `"link"` implies it. zstd-9 is disqualified (151 ms to store a 5 MB object for 15% fewer bytes than zstd-3), and in the Go zstd, level 1 and level 3 give the same ratio on this corpus.
 
 ## Eviction
 
