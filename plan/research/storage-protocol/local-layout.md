@@ -260,65 +260,79 @@ the whole GBCI index is scoped to the `go-buildcache/v1<64-hex>` key shape.
 
 `probes/readcost_test.go`, hot page cache, ext4.
 
-| operation | `[ci]` ubuntu | `[ci]` **windows** | `[sandbox]` |
-|---|--:|--:|--:|
-| `syscall.Stat` (hit) | 1,711 | n/a | 678 |
-| `syscall.Stat` (miss, ENOENT) | 1,174 | n/a | 511 |
-| `os.Stat` (hit) | 1,896 | **19,169** | 877 |
-| `os.Stat` (miss) | 1,331 | **11,257** | 713 |
-| open + close, 4 KiB file | 5,389 | **21,877** | 2,731 |
-| open + read-all, 4 KiB | 6,529 | **30,210** | 3,261 |
-| open + read-all, 200 KiB | 14,363 | 40,696 | 7,991 |
-| open + read-all, 512 KiB | 26,401 | 55,206 | 20,030 |
-| open + read-all, 5 MiB | 180,410 | 528,243 | 378,299 |
+| operation | `[ci]` ubuntu | `[ci]` **windows** | `[ci]` macos | `[sandbox]` |
+|---|--:|--:|--:|--:|
+| `syscall.Stat` (hit) | 1,734 | n/a | n/a | 678 |
+| `syscall.Stat` (miss, ENOENT) | 1,178 | n/a | n/a | 511 |
+| `os.Stat` (hit) | 1,896 | **22,157** | 1,917 | 877 |
+| `os.Stat` (miss) | 1,333 | **11,732** | 1,685 | 713 |
+| open + close, 4 KiB file | 5,434 | **24,482** | 9,121 | 2,731 |
+| open + read-all, 4 KiB | 6,515 | **31,719** | 9,127 | 3,261 |
+| open + read-all, 200 KiB | 14,068 | 40,802 | 15,580 | 7,991 |
+| open + read-all, 512 KiB | 26,274 | 52,550 | 25,079 | 20,030 |
+| open + read-all, 5 MiB | 181,487 | 539,352 | 374,867 | 378,299 |
 
-All in ns/op. Three quite different machines, and the spread is the point.
+All in ns/op. Four quite different machines, and the spread is the point.
+The macOS runner is an Apple M1 on APFS, so it is a different ISA and a
+different filesystem as well as a different OS.
 
 **Windows is an order of magnitude slower per file operation.** Same CPU as the
-Linux runner: `os.Stat` is **19.2 µs against 1.9 µs**, and opening and closing
-a file is 21.9 µs against 5.4 µs. Reading a 4 KiB file runs at 135 MB/s. NTFS
+Linux runner: `os.Stat` is **22.2 µs against 1.9 µs**, and opening and closing
+a file is 24.5 µs against 5.4 µs. Reading a 4 KiB file runs at 129 MB/s. NTFS
 plus Defender plus the Win32 path layer is a different cost regime, and any
 design validated only on Linux will be wrong about Windows by 10×.
 
-At 4,000 compiles, **one stat per lookup is 7.6 ms on Linux and 77 ms on
-Windows**. ccache's 2-to-4-level probe (three stats on a miss) is 23 ms and
-230 ms respectively. On Windows a fixed shard depth stops being a tidiness
+**macOS is on Linux's side of that line, not Windows'.** `os.Stat` is 1.9 µs,
+statistically the same as ext4, and a 512 KiB read is 25.1 µs against ext4's
+26.3 µs. Only the bare open is dearer (9.1 µs against 5.4 µs). So the
+expensive-metadata problem is an NTFS problem, not a "not-Linux" problem, and
+a design tuned for two of the three platforms should be tuned for Windows.
+
+At 4,000 compiles, **one stat per lookup is 7.6 ms on Linux, 6.7 ms on macOS
+and 89 ms on Windows**. ccache's 2-to-4-level probe (three stats on a miss) is
+23 ms, 20 ms and 267 ms respectively. On Windows a fixed shard depth stops being a tidiness
 preference and becomes a measurable win.
 
 Three things fall out.
 
-**1. A miss is a stat, and a stat is cheap on Linux and not on Windows.**
-1.2 µs on Linux, 0.5 µs on the sandbox, **11.3 µs on Windows**. ccache's
+**1. A miss is a stat, and a stat is cheap everywhere but Windows.**
+1.3 µs on Linux, 1.7 µs on macOS, 0.5 µs on the sandbox, **11.7 µs on
+Windows**. ccache's
 dynamic depth turns one miss into three stats. A fixed two-level shard costs
 one stat and needs no promotion logic, no `move_to_wanted_cache_level`, and no
 rename racing another process.
 
-**2. Open costs ~3–4× a stat everywhere.** 5.4 µs Linux / 21.9 µs Windows /
-2.7 µs sandbox to open and close a file you then read nothing from. That is the
-tax a multi-blob layout pays per extra member, and it is the same multiple on
-every platform.
+**2. Open costs ~3–5× a stat everywhere.** 5.4 µs Linux / 24.5 µs Windows /
+9.1 µs macOS / 2.7 µs sandbox to open and close a file you then read nothing
+from. That is the tax a multi-blob layout pays per extra member, and it is the
+same multiple on every platform — macOS is the worst ratio at 4.8×, which is
+why its four-blob penalty below is proportionally closer to Windows' than its
+stat cost is.
 
 **3. One container beats N blobs, and the gap is exactly the opens.** Same
 540 KiB of payload, as one file or as four (512 + 8 + 4 + 16 KiB):
 
-| layout | `[ci]` ubuntu | `[ci]` **windows** | `[sandbox]` |
-|---|--:|--:|--:|
-| 1 open, read 540 KiB | 27,548 | 56,325 | 20,749 |
-| 4 opens, read 540 KiB total | 47,181 | **147,885** | 30,509 |
-| difference | +19.6 µs (1.7×) | **+91.6 µs (2.6×)** | +9.8 µs (1.5×) |
+| layout | `[ci]` ubuntu | `[ci]` **windows** | `[ci]` macos | `[sandbox]` |
+|---|--:|--:|--:|--:|
+| 1 open, read 540 KiB | 27,746 | 53,900 | 26,814 | 20,749 |
+| 4 opens, read 540 KiB total | 46,664 | **147,340** | 53,893 | 30,509 |
+| difference | +18.9 µs (1.68×) | **+93.4 µs (2.73×)** | +27.1 µs (2.01×) | +9.8 µs (1.5×) |
 
 Extrapolated to 4,000 compiles, the cost of splitting one result into four
 files instead of one:
 
 | | extra wall clock per build |
 |---|--:|
-| ubuntu-latest | 78 ms |
-| **windows-latest** | **366 ms** |
+| ubuntu-latest | 76 ms |
+| **windows-latest** | **374 ms** |
+| macos-latest | 108 ms |
 | sandbox | 39 ms |
 
-On Linux the container's win is real but modest — 78 ms across a build that
-takes minutes. **On Windows it is 2.6× and 366 ms**, and that is with only four
-members; a CAS layout that also fetches a shared `.d` blob adds more. The
+On Linux the container's win is real but modest — 76 ms across a build that
+takes minutes. **On Windows it is 2.7× and 374 ms**, and on macOS 2.0× and
+108 ms, and that is with only four members; a CAS layout that also fetches a
+shared `.d` blob adds more. Note that macOS doubles its cost while having
+Linux's stat price: this penalty is paid in *opens*, and macOS opens are dear. The
 container wins on *bytes-per-syscall*, and Windows is where syscalls are
 expensive enough for it to matter. A CAS layout that de-duplicates a `.d` file
 across twenty configurations still saves disk, but it should expect to pay for
@@ -326,16 +340,30 @@ it in Windows latency.
 
 ## Measured: what a restore costs
 
-`probes/restore_test.go` (Linux only). This is the other half of a hit — the
-outputs have to end up where the compiler would have written them.
+`probes/restore_portable_test.go` on every platform, plus
+`probes/restore_test.go` for the Linux-only syscalls and
+`probes/restore_darwin_test.go` for `clonefile(2)`. This is the other half of a
+hit — the outputs have to end up where the compiler would have written them.
 
-`[ci]` ubuntu-latest:
+**Every platform, the portable methods** (`[ci]`, µs):
+
+| restore method | | 200 KiB | 512 KiB | 5 MiB |
+|---|---|--:|--:|--:|
+| read + write + rename | ubuntu | 479 | 1,266 | 12,641 |
+| | windows | 844 | 903 | 3,136 |
+| | macos | 322 | 501 | 2,549 |
+| read + write + **fsync** + rename | ubuntu | 590 | 1,359 | 12,692 |
+| | **windows** | **6,502** | **9,623** | **29,690** |
+| | **macos** | **2,253** | **2,283** | 4,676 |
+| `link()` (hard link) | ubuntu | 12.2 | 12.3 | 12.2 |
+| | windows | 517 | 538 | 560 |
+| | macos | 272 | 277 | 265 |
+
+**Linux-only syscalls**, `[ci]` ubuntu:
 
 | restore method | 200 KiB | 512 KiB | 5 MiB |
 |---|--:|--:|--:|
-| read + write + rename | 474 µs | 1,277 µs | 12,625 µs |
-| `copy_file_range` + rename | 501 µs | 1,283 µs | 12,621 µs |
-| `link()` (hard link) | 12.3 µs | 12.3 µs | 12.3 µs |
+| `copy_file_range` + rename | 507 µs | 1,279 µs | 12,734 µs |
 | `FICLONE` (reflink) | unsupported | unsupported | unsupported |
 
 `[sandbox]`, for contrast:
@@ -347,8 +375,32 @@ outputs have to end up where the compiler would have written them.
 | `link()` (hard link) | 4.0 µs | 4.0 µs | 4.0 µs |
 | `FICLONE` (reflink) | unsupported | unsupported | unsupported |
 
-`TestReflinkSupport` reports `EOPNOTSUPP` on **both** machines: **ext4 has no
-reflink support**, and that answer is recorded in the results rather than
+Three results here were not visible before the other two platforms ran.
+
+**`fsync` before the rename is nearly free on ext4 and ruinous elsewhere.**
+On the Linux runner it costs 7–23% (1,266 → 1,359 µs at 512 KiB). On **NTFS it
+costs 10.7×** (903 → 9,623 µs) and on **APFS 4.6×** (501 → 2,283 µs). Go's
+`File.Sync` issues `F_FULLFSYNC` on darwin, which is a real barrier down to the
+platter rather than a flush of the OS cache, and that is the whole gap on
+macOS. The design consequence is that "fsync before rename" cannot be a
+constant: on two of three platforms it is the single most expensive thing on
+the hit path, more expensive than the compression, the hashing and the lookup
+put together. It only buys anything if the read path does **not** verify a
+checksum, and the read path should verify a checksum, which costs 23 µs.
+
+**Hard linking is constant in the file size on every platform, but the constant
+is not.** 12 µs on ext4, 272 µs on APFS, 538 µs on NTFS — so the celebrated
+"39–104× faster than copying" is a Linux number. On macOS the win at 200 KiB is
+1.2× and at 5 MiB 9.6×; on Windows 1.6× and 5.6×. Linking is still the right
+restore for a large object everywhere, and it is still never the right restore
+for a *compressed* cache, but on Windows it buys far less than the Linux
+measurement suggests.
+
+**`copy_file_range` still buys nothing on ext4**, confirming the earlier run:
+507 µs against 479 µs at 200 KiB.
+
+`TestReflinkSupport` reports `EOPNOTSUPP` on **both** Linux machines: **ext4 has
+no reflink support**, and that answer is recorded in the results rather than
 skipped over — reflink
 restore is a btrfs/XFS-with-reflink/APFS feature, not something to design the
 hot path around. On the filesystems that do support it, a clone is a metadata
@@ -357,19 +409,28 @@ documents `file_clone` as "completely safe to use" while warning that
 `hard_link` corrupts the cache if anything writes to the restored file (and
 mitigates it by making cached files read-only).
 
-The numbers say the restore, not the lookup, is where a hit spends its time.
-On CI: **1,277 µs to put back a 512 KiB object versus 26 µs to read it — 48×.**
-On the sandbox it is 241 µs versus 20 µs — 12×. Either way the write dominates,
-and the CI number is the one that looks like a real developer machine with
-network-backed storage.
+The numbers say the restore, not the lookup, is where a hit spends its time, on
+every platform. Putting back a 512 KiB object against reading it:
+
+| | restore | read | ratio |
+|---|--:|--:|--:|
+| ubuntu | 1,266 µs | 26.3 µs | **48×** |
+| windows | 903 µs | 52.6 µs | 17× |
+| macos | 501 µs | 25.1 µs | 20× |
+| sandbox | 241 µs | 20.0 µs | 12× |
+
+Either way the write dominates. Note that Windows, the platform with the most
+expensive *lookup*, has the second cheapest *restore* — its per-syscall tax is
+large and its per-byte throughput is fine, which is the same story the container
+argument tells.
 
 `copy_file_range` is worth having in principle — one syscall, no bytes through
 userspace, and on a reflink filesystem the kernel may turn it into a share —
-but measured it buys **nothing on the CI runner** (501 vs 474 µs at 200 KiB,
-within noise at the larger sizes) and 10–20% on the sandbox. It is not the
-optimisation it looks like on ext4.
+but measured it buys **nothing on the CI runner** and 10–20% on the sandbox. It
+is not the optimisation it looks like on ext4.
 
-Hard-linking is **39–104× faster** and constant in the file size, and it comes
+Hard-linking is **39–104× faster on Linux** (1.2–9.6× on macOS, 1.6–5.6× on
+Windows) and constant in the file size on all three, and it comes
 with a correctness cliff: the cache entry and the build tree share an inode, so
 anything that writes to the restored object corrupts the cache. ccache mitigates
 by making cached files read-only and documents the risk; it also **disables
@@ -379,6 +440,8 @@ link into a compressed blob.
 Platform equivalents: `copy_file_range(2)` on Linux, `clonefile(2)` on macOS
 (APFS, always CoW), `FSCTL_DUPLICATE_EXTENTS_TO_FILE` on Windows (ReFS only).
 `CopyFileEx` with `COPY_FILE_NO_BUFFERING` is the Windows fallback.
+`clonefile(2)` is probed directly by `probes/restore_darwin_test.go`; its
+verdict is in "The `clonefile` verdict" below.
 
 ## Measured: hashing is the expensive part
 
