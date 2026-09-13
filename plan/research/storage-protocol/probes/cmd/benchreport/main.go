@@ -24,24 +24,43 @@ func main() {
 		fmt.Printf("Run: %s\n\n", *runURL)
 	}
 
-	if s, err := os.ReadFile(filepath.Join(*dir, "machine.txt")); err == nil {
+	// Every expected file is required. A report that quietly omits a section
+	// reads like a section that had nothing to say, which is the one failure
+	// mode that matters here: a partial table presented as a complete one.
+	missing := 0
+	read := func(name string) string {
+		b, err := os.ReadFile(filepath.Join(*dir, name))
+		if err != nil {
+			fmt.Printf("\n> **MISSING: %s** — %v\n\n", name, err)
+			fmt.Fprintf(os.Stderr, "benchreport: missing %s: %v\n", name, err)
+			missing++
+			return ""
+		}
+		return string(b)
+	}
+
+	if s := read("machine.txt"); s != "" {
 		fmt.Printf("### machine\n\n```\n%s```\n\n", s)
 	}
 	for _, f := range []struct{ file, title string }{
 		{"tables.txt", "ratio and container-overhead tables"},
 		{"binpazer-tables.txt", "binpazer round trip"},
 	} {
-		if s, err := os.ReadFile(filepath.Join(*dir, f.file)); err == nil {
-			fmt.Printf("### %s\n\n```\n%s```\n\n", f.title, trimGoTest(string(s)))
+		if s := read(f.file); s != "" {
+			fmt.Printf("### %s\n\n```\n%s```\n\n", f.title, trimGoTest(s))
 		}
 	}
 	for _, f := range []struct{ file, title string }{
 		{"bench.txt", "benchmarks"},
 		{"binpazer-bench.txt", "binpazer benchmarks"},
 	} {
-		if s, err := os.ReadFile(filepath.Join(*dir, f.file)); err == nil {
-			fmt.Printf("### %s\n\n%s\n", f.title, benchTable(string(s)))
+		if s := read(f.file); s != "" {
+			fmt.Printf("### %s\n\n%s\n", f.title, benchTable(s))
 		}
+	}
+	if missing > 0 {
+		fmt.Fprintf(os.Stderr, "benchreport: %d expected result file(s) missing\n", missing)
+		os.Exit(1)
 	}
 }
 
@@ -85,7 +104,8 @@ func benchTable(s string) string {
 		rows++
 	}
 	if rows == 0 {
-		return "_no benchmark lines_\n"
+		fmt.Fprintln(os.Stderr, "benchreport: a results file held no Benchmark lines")
+		return "\n> **EMPTY: no benchmark lines in this file**\n"
 	}
 	return b.String()
 }

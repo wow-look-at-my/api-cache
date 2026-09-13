@@ -128,10 +128,16 @@ func tarPack(ms []member) []byte {
 	var buf bytes.Buffer
 	w := tar.NewWriter(&buf)
 	for _, m := range ms {
-		w.WriteHeader(&tar.Header{Name: m.Name, Size: int64(len(m.Data)), Mode: 0o644, Format: tar.FormatUSTAR})
-		w.Write(m.Data)
+		if err := w.WriteHeader(&tar.Header{Name: m.Name, Size: int64(len(m.Data)), Mode: 0o644, Format: tar.FormatUSTAR}); err != nil {
+			panic(err)
+		}
+		if _, err := w.Write(m.Data); err != nil {
+			panic(err)
+		}
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		panic(err)
+	}
 	return buf.Bytes()
 }
 
@@ -147,7 +153,9 @@ func tarUnpackAll(b []byte) [][]byte {
 			panic(err)
 		}
 		d := make([]byte, h.Size)
-		io.ReadFull(r, d)
+		if _, err := io.ReadFull(r, d); err != nil {
+			panic(err)
+		}
 		out = append(out, d)
 	}
 	return out
@@ -163,7 +171,9 @@ func tarReadOne(b []byte, name string) []byte {
 		}
 		if h.Name == name {
 			d := make([]byte, h.Size)
-			io.ReadFull(r, d)
+			if _, err := io.ReadFull(r, d); err != nil {
+				panic(err)
+			}
 			return d
 		}
 	}
@@ -182,7 +192,10 @@ func tarManifestPack(ms []member) []byte {
 	for _, m := range ms {
 		mf.Entries = append(mf.Entries, ent{Key: m.Name, Meta: map[string]string{"size": fmt.Sprint(len(m.Data))}})
 	}
-	j, _ := json.Marshal(mf)
+	j, err := json.Marshal(mf)
+	if err != nil {
+		panic(err)
+	}
 	all := append([]member{{"manifest.json", j}}, ms...)
 	return tarPack(all)
 }
@@ -193,8 +206,13 @@ func zipPack(ms []member, method uint16) []byte {
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
 	for _, m := range ms {
-		fw, _ := w.CreateHeader(&zip.FileHeader{Name: m.Name, Method: method})
-		fw.Write(m.Data)
+		fw, err := w.CreateHeader(&zip.FileHeader{Name: m.Name, Method: method})
+		if err != nil {
+			panic(err)
+		}
+		if _, err := fw.Write(m.Data); err != nil {
+			panic(err)
+		}
 	}
 	w.Close()
 	return buf.Bytes()
@@ -207,8 +225,14 @@ func zipUnpackAll(b []byte) [][]byte {
 	}
 	var out [][]byte
 	for _, f := range r.File {
-		rc, _ := f.Open()
-		d, _ := io.ReadAll(rc)
+		rc, err := f.Open()
+		if err != nil {
+			panic(err)
+		}
+		d, err := io.ReadAll(rc)
+		if err != nil {
+			panic(err)
+		}
 		rc.Close()
 		out = append(out, d)
 	}
@@ -222,8 +246,14 @@ func zipReadOne(b []byte, name string) []byte {
 	}
 	for _, f := range r.File {
 		if f.Name == name {
-			rc, _ := f.Open()
-			d, _ := io.ReadAll(rc)
+			rc, err := f.Open()
+			if err != nil {
+				panic(err)
+			}
+			d, err := io.ReadAll(rc)
+			if err != nil {
+				panic(err)
+			}
 			rc.Close()
 			return d
 		}

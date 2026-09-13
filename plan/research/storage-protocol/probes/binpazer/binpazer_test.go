@@ -108,10 +108,16 @@ func tarPack(ms []member) []byte {
 	var buf bytes.Buffer
 	w := tar.NewWriter(&buf)
 	for _, m := range ms {
-		w.WriteHeader(&tar.Header{Name: m.Name, Size: int64(len(m.Data)), Mode: 0o644, Format: tar.FormatUSTAR})
-		w.Write(m.Data)
+		if err := w.WriteHeader(&tar.Header{Name: m.Name, Size: int64(len(m.Data)), Mode: 0o644, Format: tar.FormatUSTAR}); err != nil {
+			panic(err)
+		}
+		if _, err := w.Write(m.Data); err != nil {
+			panic(err)
+		}
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		panic(err)
+	}
 	return buf.Bytes()
 }
 
@@ -124,7 +130,9 @@ func tarReadOne(b []byte, name string) []byte {
 		}
 		if h.Name == name {
 			d := make([]byte, h.Size)
-			io.ReadFull(r, d)
+			if _, err := io.ReadFull(r, d); err != nil {
+				panic(err)
+			}
 			return d
 		}
 	}

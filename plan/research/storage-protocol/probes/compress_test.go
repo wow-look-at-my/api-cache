@@ -36,14 +36,25 @@ func load(tb testing.TB, p string) []byte {
 }
 
 func zstdEnc(level zstd.EncoderLevel) *zstd.Encoder {
-	e, _ := zstd.NewWriter(nil, zstd.WithEncoderLevel(level), zstd.WithEncoderConcurrency(1))
+	e, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(level), zstd.WithEncoderConcurrency(1))
+	if err != nil {
+		panic(err)
+	}
 	return e
+}
+
+func zstdDec() *zstd.Decoder {
+	d, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+	if err != nil {
+		panic(err)
+	}
+	return d
 }
 
 // TestRatios prints a ratio table for every codec over every corpus file.
 // It is a report, not an assertion.
 func TestRatios(t *testing.T) {
-	dec, _ := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+	dec := zstdDec()
 	defer dec.Close()
 	fmt.Printf("%-20s %10s %10s %8s %10s %8s %10s %8s %10s %8s %10s %8s %10s %8s\n",
 		"file", "raw", "lz4", "ratio", "s2", "ratio", "s2-better", "ratio", "zstd-1", "ratio", "zstd-3", "ratio", "zstd-9", "ratio")
@@ -123,7 +134,10 @@ func BenchmarkEncode(b *testing.B) {
 			var buf bytes.Buffer
 			benchEncode(b, p, func(src []byte) int {
 				buf.Reset()
-				w, _ := flate.NewWriter(&buf, 6)
+				w, err := flate.NewWriter(&buf, 6)
+				if err != nil {
+					b.Fatal(err)
+				}
 				w.Write(src)
 				w.Close()
 				return buf.Len()
@@ -133,7 +147,7 @@ func BenchmarkEncode(b *testing.B) {
 }
 
 func BenchmarkDecode(b *testing.B) {
-	dec, _ := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+	dec := zstdDec()
 	defer dec.Close()
 	for _, p := range corpus {
 		src := load(b, p)
@@ -262,7 +276,7 @@ func BenchmarkDecodeStreamVsOneShot(b *testing.B) {
 	e.Close()
 
 	b.Run("zstd/DecodeAll/pooled", func(b *testing.B) {
-		d, _ := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+		d := zstdDec()
 		defer d.Close()
 		dst := make([]byte, 0, len(src))
 		b.SetBytes(int64(len(src)))
