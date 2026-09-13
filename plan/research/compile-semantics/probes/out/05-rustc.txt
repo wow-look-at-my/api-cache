@@ -21,13 +21,13 @@ LLVM version: 21.1.8
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: --emit=dep-info : the dep-info file format
------ $ env PATH_LIKE_VAR=hello rustc --crate-name demo --crate-type lib --emit=dep-info --out-dir /tmp/tmp.3LO3ZlF5N9 lib.rs
+----- $ env PATH_LIKE_VAR=hello rustc --crate-name demo --crate-type lib --emit=dep-info --out-dir /tmp/tmp.eEQwiXeU2z lib.rs
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: read it (target line, phony lines, then '# env-dep:' records)
------ $ show /tmp/tmp.3LO3ZlF5N9/demo.d
---- contents of /tmp/tmp.3LO3ZlF5N9/demo.d ---
-/tmp/tmp.3LO3ZlF5N9/demo.d: lib.rs helper.rs inc.txt
+----- $ show /tmp/tmp.eEQwiXeU2z/demo.d
+--- contents of /tmp/tmp.eEQwiXeU2z/demo.d ---
+/tmp/tmp.eEQwiXeU2z/demo.d: lib.rs helper.rs inc.txt
 
 lib.rs:
 helper.rs:
@@ -38,11 +38,11 @@ inc.txt:
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: --emit=link,metadata,dep-info -C extra-filename=-abc123 (out-dir pre-created)
------ $ env PATH_LIKE_VAR=hello rustc --crate-name demo --crate-type lib --emit=link,metadata,dep-info -C extra-filename=-abc123 --out-dir /tmp/tmp.3LO3ZlF5N9/full lib.rs
+----- $ env PATH_LIKE_VAR=hello rustc --crate-name demo --crate-type lib --emit=link,metadata,dep-info -C extra-filename=-abc123 --out-dir /tmp/tmp.eEQwiXeU2z/full lib.rs
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: list what rustc actually produced
------ $ ls -1 /tmp/tmp.3LO3ZlF5N9/full
+----- $ ls -1 /tmp/tmp.eEQwiXeU2z/full
 demo-abc123.d
 libdemo-abc123.rlib
 libdemo-abc123.rmeta
@@ -54,17 +54,17 @@ libdemo-abc123.rlib
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: NOTE: --print file-names does NOT list the .rmeta; a wrapper derives it from the .rlib
------ $ sh -c ls -1 "$1"/full | grep -c rmeta _ /tmp/tmp.3LO3ZlF5N9
+----- $ sh -c ls -1 "$1"/full | grep -c rmeta _ /tmp/tmp.eEQwiXeU2z
 1
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: env-dep record for a SET variable
------ $ grep -n env-dep /tmp/tmp.3LO3ZlF5N9/demo.d
+----- $ grep -n env-dep /tmp/tmp.eEQwiXeU2z/demo.d
 7:# env-dep:PATH_LIKE_VAR=hello
 ----- RESULT: PASS (exit 0)
 
 ===== STEP (expects exit nonzero): --emit=dep-info with PATH_LIKE_VAR unset (compile fails; dep file is still written)
------ $ rustc --crate-name demo2 --crate-type lib --emit=dep-info --out-dir /tmp/tmp.3LO3ZlF5N9 lib.rs
+----- $ rustc --crate-name demo2 --crate-type lib --emit=dep-info --out-dir /tmp/tmp.eEQwiXeU2z lib.rs
 error: unset-default
  --> lib.rs:2:21
   |
@@ -76,13 +76,13 @@ error: aborting due to 1 previous error
 ----- RESULT: PASS (exit 1, non-zero as expected)
 
 ===== STEP: expect $R/demo2.d to exist even though the compile failed
------ $ test -f /tmp/tmp.3LO3ZlF5N9/demo2.d
+----- $ test -f /tmp/tmp.eEQwiXeU2z/demo2.d
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: read it: the env-dep record has NO '=' -> the variable was UNSET
------ $ show /tmp/tmp.3LO3ZlF5N9/demo2.d
---- contents of /tmp/tmp.3LO3ZlF5N9/demo2.d ---
-/tmp/tmp.3LO3ZlF5N9/demo2.d: lib.rs helper.rs inc.txt
+----- $ show /tmp/tmp.eEQwiXeU2z/demo2.d
+--- contents of /tmp/tmp.eEQwiXeU2z/demo2.d ---
+/tmp/tmp.eEQwiXeU2z/demo2.d: lib.rs helper.rs inc.txt
 
 lib.rs:
 helper.rs:
@@ -93,18 +93,18 @@ inc.txt:
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: -C incremental : what artifact tree does it create? (this is why it is a bypass)
------ $ env PATH_LIKE_VAR=x rustc --crate-name demo --crate-type lib --emit=link -C incremental=/tmp/tmp.3LO3ZlF5N9/inc --out-dir /tmp/tmp.3LO3ZlF5N9/i lib.rs
+----- $ env PATH_LIKE_VAR=x rustc --crate-name demo --crate-type lib --emit=link -C incremental=/tmp/tmp.eEQwiXeU2z/inc --out-dir /tmp/tmp.eEQwiXeU2z/i lib.rs
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: list the incremental directory
------ $ ls -1 /tmp/tmp.3LO3ZlF5N9/inc
+----- $ ls -1 /tmp/tmp.eEQwiXeU2z/inc
 demo-0sji8hr6wgu8x
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: list one session directory inside it
------ $ sh -c ls -1 "$1"/inc/*/ | head -8 _ /tmp/tmp.3LO3ZlF5N9
-s-hm8mk2bda3-0fk6s20-9zp0q9exd7e0ikoy3oof9v5j2
-s-hm8mk2bda3-0fk6s20.lock
+----- $ sh -c ls -1 "$1"/inc/*/ | head -8 _ /tmp/tmp.eEQwiXeU2z
+s-hm8mltm8h7-127p1wx-9zp0q9exd7e0ikoy3oof9v5j2
+s-hm8mltm8h7-127p1wx.lock
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: dep-info escaping: a path containing a space
@@ -113,21 +113,21 @@ s-hm8mk2bda3-0fk6s20.lock
 	mkdir -p "$1/sp ace"
 	cp helper.rs inc.txt "$1/sp ace/"
 	printf "mod helper;\npub fn f()->i32{helper::g()+include!(\"inc.txt\")}\n" > "$1/sp ace/lib.rs"
- _ /tmp/tmp.3LO3ZlF5N9
+ _ /tmp/tmp.eEQwiXeU2z
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: --emit=dep-info over that path
------ $ env PATH_LIKE_VAR=x rustc --crate-name sp --crate-type lib --emit=dep-info --out-dir /tmp/tmp.3LO3ZlF5N9 /tmp/tmp.3LO3ZlF5N9/sp ace/lib.rs
+----- $ env PATH_LIKE_VAR=x rustc --crate-name sp --crate-type lib --emit=dep-info --out-dir /tmp/tmp.eEQwiXeU2z /tmp/tmp.eEQwiXeU2z/sp ace/lib.rs
 ----- RESULT: PASS (exit 0)
 
 ===== STEP: read it: rustc escapes a space as '\ ' and leaves every other char alone
------ $ show /tmp/tmp.3LO3ZlF5N9/sp.d
---- contents of /tmp/tmp.3LO3ZlF5N9/sp.d ---
-/tmp/tmp.3LO3ZlF5N9/sp.d: /tmp/tmp.3LO3ZlF5N9/sp\ ace/lib.rs /tmp/tmp.3LO3ZlF5N9/sp\ ace/helper.rs /tmp/tmp.3LO3ZlF5N9/sp\ ace/inc.txt
+----- $ show /tmp/tmp.eEQwiXeU2z/sp.d
+--- contents of /tmp/tmp.eEQwiXeU2z/sp.d ---
+/tmp/tmp.eEQwiXeU2z/sp.d: /tmp/tmp.eEQwiXeU2z/sp\ ace/lib.rs /tmp/tmp.eEQwiXeU2z/sp\ ace/helper.rs /tmp/tmp.eEQwiXeU2z/sp\ ace/inc.txt
 
-/tmp/tmp.3LO3ZlF5N9/sp\ ace/lib.rs:
-/tmp/tmp.3LO3ZlF5N9/sp\ ace/helper.rs:
-/tmp/tmp.3LO3ZlF5N9/sp\ ace/inc.txt:
+/tmp/tmp.eEQwiXeU2z/sp\ ace/lib.rs:
+/tmp/tmp.eEQwiXeU2z/sp\ ace/helper.rs:
+/tmp/tmp.eEQwiXeU2z/sp\ ace/inc.txt:
 --- end ---
 ----- RESULT: PASS (exit 0)
 

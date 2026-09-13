@@ -1,0 +1,57 @@
+Benchmark 1: C hello, dynamic
+  Time (mean ± σ):     474.0 µs ±  31.0 µs    [User: 287.0 µs, System: 128.4 µs]
+  Range (min … max):   402.1 µs … 567.7 µs    300 runs
+ 
+Benchmark 2: C++ iostream, dynamic
+  Time (mean ± σ):     915.8 µs ±  34.2 µs    [User: 362.6 µs, System: 496.6 µs]
+  Range (min … max):   826.3 µs … 1029.7 µs    300 runs
+ 
+Benchmark 3: C hello, static
+  Time (mean ± σ):     349.0 µs ±  20.0 µs    [User: 212.9 µs, System: 81.2 µs]
+  Range (min … max):   310.3 µs … 446.0 µs    300 runs
+ 
+Benchmark 4: C++ iostream, static
+  Time (mean ± σ):     443.0 µs ±  27.1 µs    [User: 260.2 µs, System: 126.1 µs]
+  Range (min … max):   383.0 µs … 539.3 µs    300 runs
+ 
+Benchmark 5: C++ iostream, -static-libstdc++
+  Time (mean ± σ):     582.6 µs ±  31.5 µs    [User: 271.8 µs, System: 256.6 µs]
+  Range (min … max):   520.2 µs … 699.7 µs    300 runs
+ 
+Benchmark 6: Go hello, CGO_ENABLED=0
+  Time (mean ± σ):     915.8 µs ±  46.8 µs    [User: 320.4 µs, System: 651.1 µs]
+  Range (min … max):   807.4 µs … 1199.2 µs    300 runs
+ 
+Benchmark 7: Go hello, CGO_ENABLED=1
+  Time (mean ± σ):     913.7 µs ±  52.3 µs    [User: 322.2 µs, System: 643.1 µs]
+  Range (min … max):   810.9 µs … 1389.9 µs    300 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+ 
+Benchmark 8: Go hello, -ldflags=-s -w
+  Time (mean ± σ):     919.4 µs ±  43.2 µs    [User: 312.9 µs, System: 661.4 µs]
+  Range (min … max):   831.6 µs … 1366.6 µs    300 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+ 
+Benchmark 9: Go + net/http + encoding/xml + text/template
+  Time (mean ± σ):       1.1 ms ±   0.1 ms    [User: 0.3 ms, System: 0.9 ms]
+  Range (min … max):     1.0 ms …   1.8 ms    300 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+ 
+Benchmark 10: Rust hello
+  Time (mean ± σ):     634.9 µs ±  33.1 µs    [User: 275.0 µs, System: 299.6 µs]
+  Range (min … max):   562.1 µs … 805.2 µs    300 runs
+ 
+Summary
+  C hello, static ran
+    1.27 ± 0.11 times faster than C++ iostream, static
+    1.36 ± 0.12 times faster than C hello, dynamic
+    1.67 ± 0.13 times faster than C++ iostream, -static-libstdc++
+    1.82 ± 0.14 times faster than Rust hello
+    2.62 ± 0.21 times faster than Go hello, CGO_ENABLED=1
+    2.62 ± 0.18 times faster than C++ iostream, dynamic
+    2.62 ± 0.20 times faster than Go hello, CGO_ENABLED=0
+    2.63 ± 0.20 times faster than Go hello, -ldflags=-s -w
+    3.25 ± 0.27 times faster than Go + net/http + encoding/xml + text/template
