@@ -250,3 +250,90 @@ outputs.
 | `… -l static=z -L native=/opt/lib …` | Cacheable iff `/opt/lib/libz.a` resolves; its content is hashed, the `-L` path is not. |
 | `… --extern a=libfoo.rlib --extern b=libbar.rlib` | Cacheable; the rlib contents are hashed, and the `name=basename` bindings are hashed sorted (buildcache) so that swapping `a` and `b` changes the key. |
 | `build.rs` itself | Its *compilation* goes through the wrapper and is cacheable. Its *execution* by cargo does not go through the wrapper at all. |
+
+---
+
+## 7. The rule table for rustc
+
+Same caveat as the gcc and MSVC tables: this records the per-flag knowledge, not a proposal
+for the rule surface. Role vocabulary is shared with `c-cxx-gcc-clang.md` §10.2.
+
+### 7.1 rustc value forms (engine-owned)
+
+rustc's argument grammar, as buildcache's regex encodes it
+(`R"(^(?:(--[^\s=]*)=(\S*))|(?:(-[hLlgOoAWDFCVv])(\S*))|(-)|(?:(@)(\S+))|(\S+)$)")`):
+
+| `value` | Shape | Example |
+|---|---|---|
+| `long-eq-or-sep` | `--opt=v` or `--opt v` | `--crate-type=lib`, `--emit dep-info` |
+| `short-concat-or-sep` | one of `-hLlgOoAWDFCVv` then a glued or separate value | `-Cdebuginfo=2`, `-C debuginfo=2`, `-Lnative=/x` |
+| `kv` | the *value* is itself `key=value` | `-C extra-filename=-abc`, `--extern foo=/p/libfoo.rlib` |
+| `kinded-path` | `[KIND=]PATH`, where KIND is only a kind if it is one of the known kinds | `-L dependency=/x`, `-L /x=y` (path contains `=`) |
+| `kinded-name` | `[KIND[:MODS]=]NAME[:RENAME]` | `-l static:+bundle=z:zlib` |
+| `comma-list` | comma-separated | `--emit=link,metadata,dep-info` |
+| `bare-dash` | the single token `-` | stdin source |
+| `positional` | the input path | `src/lib.rs` |
+
+Known `-L` kinds: `dependency`, `crate`, `native`, `framework`, `all` (default `all`).
+Known `-l` kinds: `dylib` (default), `static`, `framework`, `link-arg`.
+
+### 7.2 The table
+
+| pattern | value | role | notes |
+|---|---|---|---|
+| `<path>.rs` | `positional` | `source-input` | Exactly one. A second → decline. |
+| `-` | `bare-dash` | `bypass:no_input_file` | Cargo's `--print=file-names` probe uses it; pass through. |
+| `--crate-name <n>` | `long-eq-or-sep` | `hash-verbatim` + `mode:crate-name` | Required. Also names the `.d`. |
+| `--crate-type <t,…>` | `comma-list` | `hash-verbatim` + `mode:crate-type` | buildcache: only `lib`/`rlib`/`staticlib`; otherwise decline. `proc-macro` is a cdylib — cacheable as a compile, but see §2 on what a proc macro can read at expansion time. |
+| `--edition=<y>` | `long-eq-or-sep` | `hash-verbatim` | |
+| `--emit <list>` | `comma-list` | `mode:emit` | Required, **at most once**. Must be ⊆ {`link`,`metadata`,`dep-info`} and not just `dep-info`. Determines the output set. |
+| `--out-dir <d>` | `long-eq-or-sep` | `output-dir` | Required. **Not hashed** — it is where results land, not what they are. |
+| `-o <f>` | `short-concat-or-sep` | `bypass:unsupported_compiler_option` | Cargo never uses it; the `--out-dir` + derived-names model is what both wrappers implement. |
+| `-C extra-filename=<s>` | `kv` | `hash-verbatim` + `mode:extra-filename` | Part of every output name. An empty value → decline. |
+| `-C metadata=<s>` | `kv` | `hash-verbatim` | Cargo's per-unit disambiguator; affects symbol names. |
+| `-C incremental=<d>` | `kv` | `bypass:unsupported_compiler_option` | Opaque artifact tree the cache cannot enumerate. **Dropping it instead would make an incremental and a non-incremental compile share a key** — so it must be a decline, not an ignore. This is what a plain `cargo build` (dev profile) emits. |
+| `-C profile-use=<p>` | `kv` | `path-read` | sccache also adds the profile to the outputs so distributed compilation can ship it. |
+| `-C profile-generate=…` | `kv` | `hash-verbatim` | sccache: "it's users work to make sure" the profile dir is right. |
+| `-C <other>=<v>` / `-C <flag>` | `short-concat-or-sep` | `hash-verbatim` | `-C opt-level`, `-C debuginfo`, `-C target-cpu`, `-C embed-bitcode`, `-C link-arg`, … |
+| `-g` `-O` | `short-concat-or-sep` (`none`) | `hash-verbatim` | Aliases for `-C debuginfo=2` / `-C opt-level=2`. |
+| `--cfg <c>` | `long-eq-or-sep` | `hash-verbatim` + **`sort-before-hashing`** | Older cargo did not emit these in a deterministic order; sccache partitions them out, sorts, and appends. |
+| `--check-cfg <c>` | `long-eq-or-sep` | `ignore` (sccache) / `hash-verbatim` (buildcache) | sccache excludes it from the argument hash. |
+| `--extern <name>=<path>` | `kv` | **`path-read`** on `<path>`, **and** `hash-verbatim` on `<name>=<basename>` | The path is dropped from the key (build-root-specific); the artifact's *content* is hashed. buildcache additionally hashes the **binding**: "the same set of artifacts bound to different names compiles differently", so sorting paths alone would hide a swap of two names. Sort both lists. |
+| `-L [kind=]<dir>` | `kinded-path` | `dir-read`, **not hashed** | What is found there is hashed by content instead. `native`/`all` kinds feed the `-l static=` resolution. |
+| `-l [kind[:mods]=]<name>[:rename]` | `kinded-name` | `hash-verbatim`; **`path-read` on the resolved archive** when kind is `static` | Resolution walks the `-L native`/`-L all` dirs in order, trying `lib<name>.a`, `<name>.lib`, `<name>.a`; **unresolvable → decline** (buildcache), because rustc may still find it in a system dir the cache never saw. Hash the archive with an `.a`-aware digest that ignores embedded timestamps (sccache's `hash_all_archives`). |
+| `--target <triple>` | `long-eq-or-sep` | `hash-verbatim` | |
+| `--target <x>.json` (or `<x>` with `<x>.json` on disk) | `long-eq-or-sep` | **`path-read`**, and the `--target` argument itself is **dropped** from the key | sccache's rule. buildcache declines instead. |
+| `--sysroot <d>` | `long-eq-or-sep` | `bypass:unsupported_compiler_option` | Changes which std is linked with nothing else changing. |
+| `--remap-path-prefix <a>=<b>` | `long-eq-or-sep` | buildcache: `bypass`. sccache: `hash-verbatim` | The gcc analogue is `prefix-map`; a correct engine should treat it as one. |
+| `--error-format <f>` `--json <f>` `--color <c>` | `long-eq-or-sep` | `hash-verbatim` | They change the **bytes of stderr**, which is replayed, so they belong in the key. |
+| `--diagnostic-width <n>` | `long-eq-or-sep` | **`ignore`** | Cargo derives it from the terminal width; hashing it invalidates the whole cache on every resize. Documented cost: replayed stderr may be wrapped for another width. |
+| `-A/-W/-D/-F <lint>` and `--allow/--warn/--force-warn/--deny/--forbid/--cap-lints` | `short-concat-or-sep` / `long-eq-or-sep` | `hash-verbatim` | |
+| `-Z <opt>` | `short-concat-or-sep` | `hash-verbatim`; `-Zprofile` → `derived-output:.gcno` | |
+| `-v` `--verbose` | `none` | `hash-verbatim` | |
+| `-V` `--version` `-h` `--help` `--explain` `--print <x>` `--test` | various | `bypass` / pass through | Cargo's probes (`-vV`, `--print=file-names`) come through the wrapper and must be fast. |
+| `@<file>` | `long-eq-or-sep` | *expand, then re-dispatch* | buildcache has a TODO and declines; sccache supports it. |
+| any **unrecognised** `-…` | — | `bypass:unsupported_compiler_option` | buildcache's default, with an explicit rationale: an unknown option cannot be hashed (it may take a separate argument that would then be mistaken for the input file) and cannot be ignored (it may change output). **This is the right default and differs from the C tables, where the default is `hash-verbatim`.** |
+
+### 7.3 Environment
+
+| variable | role |
+|---|---|
+| every `# env-dep:NAME[=VALUE]` line rustc writes into the `.d` | `hash-value`, sorted; **distinguish unset (no `=`) from empty** — `option_env!` returns `None` vs `Some("")` |
+| every `CARGO_*` in the environment | `hash-value`, sorted |
+| `CARGO_MAKEFLAGS` | `ignore` — carries jobserver fds |
+| `CARGO_REGISTRIES_*_TOKEN` / `CARGO_REGISTRIES_*` | `ignore` — secrets; the dep's package ID already identifies the registry |
+| `CARGO_BUILD_JOBS` | `ignore` — parallelism only |
+| `CARGO_ENCODED_RUSTFLAGS` | `ignore` — already in the argv |
+| `RUSTC_COLOR` | `ignore` — colour comes from `--color`; rustc errors when both are set |
+| `LD_PRELOAD`, `RUNNING_UNDER_RR`, `HOSTNAME`, `PWD`, `HOST`, `RPM_BUILD_ROOT`, `SOURCE_DATE_EPOCH`, `RPM_PACKAGE_RELEASE`, `RPM_PACKAGE_VERSION`, `MINICOM` | **`unset-around-child`** (buildcache's list, evidently accumulated from distro build environments) |
+| the **cwd** | `hash-value`, unconditionally — "This will wind up in the rlib" |
+
+### 7.4 Engine primitives this table assumes
+
+`rustc-argv-parse` · `dep-info-parse` (Makefile first line + phony lines + `# env-dep:`
+records, `\ ` space escaping, refuse a line you do not fully understand) ·
+`tool-query(--print file-names)` and `tool-query(-vV)`, `tool-query(--print=sysroot)` ·
+`emit-to-output-set` (`link`→binary/rlib, `metadata`→`.rmeta` siblings of each `.rlib`,
+`dep-info`→`<crate><extra>.d`; prune binaries when `link` is absent) ·
+`archive-digest` (timestamp-insensitive `.a` hashing) · `sysroot-shlib-digest` ·
+`sorted-kv-hash`.
