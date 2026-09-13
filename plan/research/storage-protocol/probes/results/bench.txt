@@ -62,3 +62,15 @@ BenchmarkDecode/s2/testdata/mid.d-4            	  274204	      2192 ns/op	4156.7
 BenchmarkDecode/zstd3/testdata/mid.d-4         	   58413	     10124 ns/op	 899.94 MB/s	       0 B/op	       0 allocs/op
 BenchmarkDecode/zstd9/testdata/mid.d-4         	   60673	      9441 ns/op	 965.07 MB/s	       0 B/op	       0 allocs/op
 BenchmarkDecode/zstd1/testdata/mid.d-4         	   66961	      8941 ns/op	1019.01 MB/s	       0 B/op	       0 allocs/op
+BenchmarkMemcpyBaseline/testdata/small.o-4     	 8921354	        68.70 ns/op	148352.73 MB/s
+BenchmarkMemcpyBaseline/testdata/mid.o-4       	   45901	     12950 ns/op	40758.49 MB/s
+BenchmarkMemcpyBaseline/testdata/big_g1.o-4    	    3879	    155329 ns/op	9594.93 MB/s
+BenchmarkMemcpyBaseline/testdata/big.o-4       	    1149	    458146 ns/op	11002.67 MB/s
+BenchmarkMemcpyBaseline/testdata/mid.d-4       	 9805064	        61.05 ns/op	149235.07 MB/s
+BenchmarkCodecConstruct/zstd.NewReader-4       	  551112	       944.8 ns/op	    1304 B/op	       7 allocs/op
+BenchmarkCodecConstruct/zstd.NewReader/default-concurrency-4         	  243178	      2511 ns/op	    3776 B/op	      13 allocs/op
+BenchmarkCodecConstruct/zstd.NewWriter-4                             	 1536777	       395.0 ns/op	     640 B/op	       1 allocs/op
+BenchmarkCodecConstruct/lz4.NewReader-4                              	 2755282	       209.3 ns/op	     304 B/op	       2 allocs/op
+BenchmarkCodecConstruct/lz4.NewWriter-4                              	 2793504	       210.0 ns/op	     288 B/op	       2 allocs/op
+BenchmarkDecodeStreamVsOneShot/zstd/DecodeAll/pooled-4               	     691	    824625 ns/op	 640.10 MB/s	     295 B/op	       0 allocs/op
+BenchmarkDecodeStreamVsOneShot/zstd/NewReader-per-call/stream-4      	     542	   1089872 ns/op	 484.31 MB/s	 1311214 B/op	      27 allocs/op
