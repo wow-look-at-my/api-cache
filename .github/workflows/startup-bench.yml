@@ -1,0 +1,66 @@
+# Startup-time comparison across platforms, for the api-cache planning effort.
+#
+# The question this answers is narrow: a compiler wrapper is exec'd thousands of
+# times per build, so how much does each candidate implementation language, and
+# each link mode, cost per exec on each platform a developer actually builds on?
+#
+# Rows within one job are comparable. Rows across jobs are NOT: every runner is
+# a different machine on different hardware with different noise.
+name: startup-bench
+
+on:
+  push:
+    branches: ['claude/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,    name: linux-x64,   shell: bash }
+          - { os: ubuntu-24.04-arm, name: linux-arm64, shell: bash }
+          - { os: macos-latest,     name: macos-arm64, shell: bash }
+          - { os: windows-latest,   name: windows-x64, shell: pwsh }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: rust toolchain
+        run: rustc --version || rustup default stable
+
+      - name: msvc environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: bench (unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          chmod +x plan/research/startup-perf/probes/ci/run-unix.sh
+          plan/research/startup-perf/probes/ci/run-unix.sh | tee bench-${{ matrix.name }}.md
+          cat bench-${{ matrix.name }}.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: bench (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pwsh -File plan/research/startup-perf/probes/ci/run-windows.ps1 | Tee-Object -FilePath bench-${{ matrix.name }}.md
+          Get-Content bench-${{ matrix.name }}.md | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-${{ matrix.name }}
+          path: bench-${{ matrix.name }}.md
+          if-no-files-found: warn

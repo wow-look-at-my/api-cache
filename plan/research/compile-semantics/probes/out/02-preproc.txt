@@ -1,0 +1,106 @@
+===== gcc -E hello.c (head 25) =====
+# 0 "hello.c"
+# 0 "<built-in>"
+# 0 "<command-line>"
+# 1 "/usr/include/stdc-predef.h" 1 3 4
+# 0 "<command-line>" 2
+# 1 "hello.c"
+# 1 "/usr/include/stdio.h" 1 3 4
+# 28 "/usr/include/stdio.h" 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/libc-header-start.h" 1 3 4
+# 33 "/usr/include/x86_64-linux-gnu/bits/libc-header-start.h" 3 4
+# 1 "/usr/include/features.h" 1 3 4
+# 394 "/usr/include/features.h" 3 4
+# 1 "/usr/include/features-time64.h" 1 3 4
+# 20 "/usr/include/features-time64.h" 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/wordsize.h" 1 3 4
+# 21 "/usr/include/features-time64.h" 2 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/timesize.h" 1 3 4
+# 19 "/usr/include/x86_64-linux-gnu/bits/timesize.h" 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/wordsize.h" 1 3 4
+# 20 "/usr/include/x86_64-linux-gnu/bits/timesize.h" 2 3 4
+# 22 "/usr/include/features-time64.h" 2 3 4
+# 395 "/usr/include/features.h" 2 3 4
+# 502 "/usr/include/features.h" 3 4
+# 1 "/usr/include/x86_64-linux-gnu/sys/cdefs.h" 1 3 4
+# 576 "/usr/include/x86_64-linux-gnu/sys/cdefs.h" 3 4
+===== gcc -E -P hello.c (head 15) =====
+
+typedef long unsigned int size_t;
+typedef __builtin_va_list __gnuc_va_list;
+typedef unsigned char __u_char;
+typedef unsigned short int __u_short;
+typedef unsigned int __u_int;
+typedef unsigned long int __u_long;
+typedef signed char __int8_t;
+typedef unsigned char __uint8_t;
+typedef signed short int __int16_t;
+typedef unsigned short int __uint16_t;
+typedef signed int __int32_t;
+typedef unsigned int __uint32_t;
+typedef signed long int __int64_t;
+typedef unsigned long int __uint64_t;
+===== clang -E hello.c (head 25) =====
+# 1 "hello.c"
+# 1 "<built-in>" 1
+# 1 "<built-in>" 3
+# 389 "<built-in>" 3
+# 1 "<command line>" 1
+# 1 "<built-in>" 2
+# 1 "hello.c" 2
+# 1 "/usr/include/stdio.h" 1 3 4
+# 28 "/usr/include/stdio.h" 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/libc-header-start.h" 1 3 4
+# 33 "/usr/include/x86_64-linux-gnu/bits/libc-header-start.h" 3 4
+# 1 "/usr/include/features.h" 1 3 4
+# 394 "/usr/include/features.h" 3 4
+# 1 "/usr/include/features-time64.h" 1 3 4
+# 20 "/usr/include/features-time64.h" 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/wordsize.h" 1 3 4
+# 21 "/usr/include/features-time64.h" 2 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/timesize.h" 1 3 4
+# 19 "/usr/include/x86_64-linux-gnu/bits/timesize.h" 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/wordsize.h" 1 3 4
+# 20 "/usr/include/x86_64-linux-gnu/bits/timesize.h" 2 3 4
+# 22 "/usr/include/features-time64.h" 2 3 4
+# 395 "/usr/include/features.h" 2 3 4
+# 480 "/usr/include/features.h" 3 4
+# 1 "/usr/include/stdc-predef.h" 1 3 4
+===== gcc -E -P timey.c (tail) =====
+extern int __overflow (FILE *, int);
+
+int main(void){ printf("%s %s %s %s\n", "Sep 13 2026", "00:08:32", "timey.c", "Sun Sep 13 00:06:49 2026"); return 0; }
+===== gcc -E hello.c | md5 twice (stability) =====
+bcf203b9fcf9f96b47615945078544ad  -
+bcf203b9fcf9f96b47615945078544ad  -
+===== gcc -E from a different cwd, relative include (path leakage) =====
+1:# 0 "src/hello.c"
+2:# 0 "<built-in>"
+3:# 0 "<command-line>"
+4:# 1 "/usr/include/stdc-predef.h" 1 3 4
+5:# 0 "<command-line>" 2
+6:# 1 "src/hello.c"
+7:# 1 "/usr/include/stdio.h" 1 3 4
+8:# 28 "/usr/include/stdio.h" 3 4
+===== gcc -E with absolute source =====
+1:# 0 "/home/user/api-cache/plan/research/compile-semantics/probes/src/hello.c"
+2:# 0 "<built-in>"
+3:# 0 "<command-line>"
+4:# 1 "/usr/include/stdc-predef.h" 1 3 4
+5:# 0 "<command-line>" 2
+6:# 1 "/home/user/api-cache/plan/research/compile-semantics/probes/src/hello.c"
+7:# 1 "/usr/include/stdio.h" 1 3 4
+8:# 28 "/usr/include/stdio.h" 3 4
+===== gcc -E -fdirectives-only =====
+# 0 "hello.c"
+# 0 "<built-in>"
+#define __STDC__ 1
+# 0 "<built-in>"
+#define __STDC_VERSION__ 201710L
+# 0 "<built-in>"
+#define __STDC_UTF_16__ 1
+# 0 "<built-in>"
+#define __STDC_UTF_32__ 1
+# 0 "<built-in>"
+#define __STDC_HOSTED__ 1
+# 0 "<built-in>"
