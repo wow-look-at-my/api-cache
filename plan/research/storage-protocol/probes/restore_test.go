@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
-	"unsafe"
 )
 
 // Raw stat without Go's os.FileInfo allocation, to separate syscall cost from
@@ -127,7 +126,7 @@ func BenchmarkRestoreCopyFileRange(b *testing.B) {
 }
 
 func copyFileRange(in, out, n int) (int, error) {
-	r, _, e := syscall.Syscall6(syscall.SYS_COPY_FILE_RANGE,
+	r, _, e := syscall.Syscall6(sysCopyFileRange,
 		uintptr(in), 0, uintptr(out), 0, uintptr(n), 0)
 	if e != 0 {
 		return 0, e
@@ -155,6 +154,8 @@ func BenchmarkRestoreHardLink(b *testing.B) {
 		})
 	}
 }
+
+const sysCopyFileRange = 326 // x86-64 copy_file_range
 
 const ficlone = 0x40049409 // FICLONE: _IOW(0x94, 9, int)
 
@@ -194,4 +195,3 @@ func BenchmarkRestoreReflink(b *testing.B) {
 	}
 }
 
-var _ = unsafe.Pointer(nil)
