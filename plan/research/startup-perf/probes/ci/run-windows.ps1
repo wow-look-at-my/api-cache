@@ -98,8 +98,13 @@ foreach ($t in $targets) {
 	# Windows accepts forward slashes in a path, so this costs nothing.
 	$hfArgs += @("-n", $t.label, ($path -replace '\\', '/'))
 }
-hyperfine @hfArgs *>&1 | Tee-Object -FilePath (Join-Path $OUT "startup.console.txt")
-if ($LASTEXITCODE -ne 0) { throw "hyperfine exited $LASTEXITCODE; see startup.console.txt" }
+# Capture first, then write the log, then check. Reading $LASTEXITCODE after a
+# Tee-Object pipeline gives the pipeline's status rather than hyperfine's.
+$hfOut = & hyperfine @hfArgs *>&1
+$hfExit = $LASTEXITCODE
+$hfOut | Set-Content -Path (Join-Path $OUT "startup.console.txt")
+$hfOut | Write-Output
+if ($hfExit -ne 0) { throw "hyperfine exited $hfExit; see startup.console.txt" }
 
 # A non-empty table, not merely a file. hyperfine creates the export file
 # before it runs, so `Test-Path` alone passes even when every benchmark
@@ -107,7 +112,7 @@ if ($LASTEXITCODE -ne 0) { throw "hyperfine exited $LASTEXITCODE; see startup.co
 $tbl = Join-Path $OUT "startup.md"
 if (-not (Test-Path $tbl)) { throw "hyperfine wrote no markdown table at $tbl" }
 if ((Get-Item $tbl).Length -eq 0) { throw "hyperfine wrote an EMPTY markdown table; see startup.console.txt" }
-$rows = @(Get-Content $tbl | Where-Object { $_ -match '^\|' }) .Count
+$rows = @(Get-Content $tbl | Where-Object { $_ -match '^\|' }).Count
 if ($rows -lt ($targets.Count + 2)) {
 	throw "hyperfine table has $rows lines for $($targets.Count) targets; a benchmark failed. See startup.console.txt"
 }

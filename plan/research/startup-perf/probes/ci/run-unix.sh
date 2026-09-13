@@ -98,7 +98,8 @@ hyperfine --shell=none --warmup "$WARMUP" --runs "$RUNS" \
 # A non-empty table is not enough: hyperfine can emit a header and no rows
 # when every benchmark failed to launch. Count the rows against the targets.
 [ -s "$OUT/startup.md" ] || { echo "FATAL: hyperfine wrote an empty markdown table; see startup.console.txt" >&2; exit 1; }
-want=$(( ${#targets[@]} / 2 ))
+# Three array elements per target: -n, the label, the path.
+want=$(( ${#targets[@]} / 3 ))
 got=$(grep -c '^|' "$OUT/startup.md" || true)
 [ "$got" -ge $(( want + 2 )) ] || {
 	echo "FATAL: hyperfine table has $got lines for $want targets; a benchmark failed. See startup.console.txt" >&2

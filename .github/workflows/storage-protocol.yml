@@ -9,7 +9,7 @@ on:
   push:
     paths:
       - '.github/workflows/storage-protocol*.yml'
-      - 'plan/research/storage-protocol/**'
+      - 'plan/research/storage-protocol/TRIGGER'
 
 permissions:
   contents: read

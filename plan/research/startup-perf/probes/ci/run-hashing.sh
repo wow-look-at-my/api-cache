@@ -28,18 +28,22 @@ N="${BENCH_N:-60}"
 	# reports `sha2` in `Features`. An arm64 run once printed "sha_ni absent"
 	# beside 2 GB/s of sha256, which is the crypto extensions plainly in use.
 	if [ -r /proc/cpuinfo ]; then
-		model="$(grep -m1 -E '^(model name|Model)' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
-		[ -n "$model" ] || model="$(uname -m) (the kernel reports no model string)"
+		# `grep` exits 1 when it matches nothing, which under `set -e` killed the
+		# whole arm64 job: ARM64 /proc/cpuinfo carries no "model name" line. This
+		# is a descriptive header field, not a measurement, so a miss reports what
+		# the kernel does give instead of aborting.
+		model="$( (grep -m1 -E '^(model name|Model|CPU part)' /proc/cpuinfo || true) | cut -d: -f2- | sed 's/^ //')"
+		[ -n "$model" ] || model="$(uname -m); the kernel exposes no model string on this platform"
 		echo "- cpu: $model"
 		case "$(uname -m)" in
 			x86_64|amd64)
-				if grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' | grep -qx 'sha_ni'; then
+				if (grep -m1 '^flags' /proc/cpuinfo || true) | tr ' ' '\n' | grep -qx 'sha_ni'; then
 					echo "- sha acceleration: **present** (x86 \`sha_ni\`); Go's sha256 uses it"
 				else
 					echo "- sha acceleration: **absent** (no x86 \`sha_ni\`); Go's sha256 runs the generic path"
 				fi ;;
 			aarch64|arm64)
-				if grep -m1 '^Features' /proc/cpuinfo | tr ' ' '\n' | grep -qx 'sha2'; then
+				if (grep -m1 '^Features' /proc/cpuinfo || true) | tr ' ' '\n' | grep -qx 'sha2'; then
 					echo "- sha acceleration: **present** (ARMv8 \`sha2\` crypto extensions); Go's sha256 uses it"
 				else
 					echo "- sha acceleration: **absent** (no ARMv8 \`sha2\`); Go's sha256 runs the generic path"

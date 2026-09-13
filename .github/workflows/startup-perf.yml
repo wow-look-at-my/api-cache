@@ -21,7 +21,7 @@ on:
     # those pushes that the next one then cancelled, so nothing finished.
     paths:
       - '.github/workflows/startup-perf*.yml'
-      - 'plan/research/startup-perf/**'
+      - 'plan/research/startup-perf/TRIGGER'
   workflow_dispatch:
 
 permissions:
