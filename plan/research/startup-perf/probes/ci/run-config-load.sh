@@ -18,7 +18,10 @@ N="${BENCH_N:-400}"
 {
 	echo "# config load cost: $(uname -s) $(uname -m)"
 	echo
-	echo "- runner label: \`${RUNNER_LABEL:-unknown}\`  (GitHub Actions hosted runner)"
+	echo "> Measured on a GitHub Actions hosted runner. Not a development machine."
+	echo
+	echo "- runner label: \`${RUNNER_LABEL:-unknown}\`"
+	echo "- commit: \`${GITHUB_SHA:-?}\`"
 	echo "- run: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-?}/actions/runs/${GITHUB_RUN_ID:-?}"
 	echo "- cpu cores: $( (nproc 2>/dev/null) || sysctl -n hw.ncpu )"
 	echo "- go: $(go version)"

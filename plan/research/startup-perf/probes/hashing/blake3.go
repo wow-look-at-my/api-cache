@@ -1,5 +1,7 @@
-//go:build blake3
-
+// BLAKE3 is measured unconditionally. It used to sit behind a build tag with a
+// fallback that printed "not measured" into the table, which meant a missing
+// module produced a complete-looking table with a hole in it. Now a module
+// that will not resolve fails the build, which is what should happen.
 package main
 
 import (

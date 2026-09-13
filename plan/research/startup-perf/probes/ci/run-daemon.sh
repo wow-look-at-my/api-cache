@@ -26,10 +26,13 @@ SOCK="${TMPDIR:-/tmp}/apcache-bench.sock"
 {
 	echo "# daemon round trip: $(uname -s) $(uname -m)"
 	echo
+	echo "> Measured on a GitHub Actions hosted runner. Not a development machine."
+	echo
 	echo "- runner label: \`${RUNNER_LABEL:-unknown}\`  (GitHub Actions hosted runner)"
 	echo "- run: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-?}/actions/runs/${GITHUB_RUN_ID:-?}"
 	echo "- go: $(go version)"
 	echo "- hyperfine: $(hyperfine --version)"
+	echo "- commit: \`${GITHUB_SHA:-?}\`"
 	echo "- protocol: 4-byte length prefix, 512-byte request, 65-byte reply. No framing library."
 	echo
 } > "$OUT/daemon.md"
@@ -39,10 +42,10 @@ SOCK="${TMPDIR:-/tmp}/apcache-bench.sock"
 ( cd "$P/go-hello"     && CGO_ENABLED=0 go build -o "$OUT/go-hello"     . )
 "${CC:-cc}" -O2 -o "$OUT/ipc-cclient" "$P/ipc/cclient.c"
 "${CC:-cc}" -O2 -o "$OUT/c-hello"     "$D/src/hello.c"
-# A static C client is the smallest the shim gets. macOS cannot link one.
-if [ "$(uname -s)" != "Darwin" ]; then
-	"${CC:-cc}" -O2 -static -o "$OUT/ipc-cclient-static" "$P/ipc/cclient.c" || true
-fi
+# A static C client is the smallest the shim gets. This job runs on Linux
+# only, where a static link works, so a failure here is a real regression and
+# aborts the script rather than dropping a row.
+"${CC:-cc}" -O2 -static -o "$OUT/ipc-cclient-static" "$P/ipc/cclient.c"
 
 rm -f "$SOCK"
 "$OUT/ipc-server" "$SOCK" &
@@ -60,16 +63,22 @@ for _ in $(seq 1 50); do [ -S "$SOCK" ] && break; sleep 0.1; done
 	echo
 } >> "$OUT/daemon.md"
 
-args=( -n "C client, dynamic" "$OUT/ipc-cclient 1 $SOCK" )
-[ -x "$OUT/ipc-cclient-static" ] && args+=( -n "C client, static" "$OUT/ipc-cclient-static 1 $SOCK" )
-args+=( -n "Go client" "$OUT/ipc-goclient 1 $SOCK" )
-args+=( -n "C hello, no daemon contact"  "$OUT/c-hello" )
-args+=( -n "Go hello, no daemon contact" "$OUT/go-hello" )
+for b in ipc-cclient ipc-cclient-static ipc-goclient c-hello go-hello; do
+	[ -x "$OUT/$b" ] || { echo "FATAL: $b was not built" >&2; exit 1; }
+done
+args=(
+	-n "C client, dynamic"        "$OUT/ipc-cclient 1 $SOCK"
+	-n "C client, static"         "$OUT/ipc-cclient-static 1 $SOCK"
+	-n "Go client"                "$OUT/ipc-goclient 1 $SOCK"
+	-n "C hello, no daemon contact"  "$OUT/c-hello"
+	-n "Go hello, no daemon contact" "$OUT/go-hello"
+)
 
 hyperfine --shell=none --warmup "$WARMUP" --runs "$RUNS" \
 	--export-markdown "$OUT/daemon-exec.md" \
 	--export-json     "$OUT/daemon-exec.json" \
-	"${args[@]}" > "$OUT/daemon-exec.console.txt" 2>&1
+	"${args[@]}" 2>&1 | tee "$OUT/daemon-exec.console.txt"
+[ -s "$OUT/daemon-exec.md" ] || { echo "FATAL: hyperfine wrote no markdown table" >&2; exit 1; }
 cat "$OUT/daemon-exec.md" >> "$OUT/daemon.md"
 
 {

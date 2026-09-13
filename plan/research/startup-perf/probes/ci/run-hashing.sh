@@ -17,7 +17,10 @@ N="${BENCH_N:-60}"
 {
 	echo "# hashing throughput: $(uname -s) $(uname -m)"
 	echo
-	echo "- runner label: \`${RUNNER_LABEL:-unknown}\`  (GitHub Actions hosted runner)"
+	echo "> Measured on a GitHub Actions hosted runner. Not a development machine."
+	echo
+	echo "- runner label: \`${RUNNER_LABEL:-unknown}\`"
+	echo "- commit: \`${GITHUB_SHA:-?}\`"
 	echo "- run: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-?}/actions/runs/${GITHUB_RUN_ID:-?}"
 	echo "- go: $(go version)"
 	if [ -r /proc/cpuinfo ]; then
@@ -30,6 +33,6 @@ N="${BENCH_N:-60}"
 	echo
 } > "$OUT/hashing.md"
 
-( cd "$P/hashing" && CGO_ENABLED=0 go build -tags blake3 -o "$OUT/hashbench" . )
+( cd "$P/hashing" && CGO_ENABLED=0 go build -o "$OUT/hashbench" . )
 "$OUT/hashbench" -n "$N" >> "$OUT/hashing.md"
 cat "$OUT/hashing.md"

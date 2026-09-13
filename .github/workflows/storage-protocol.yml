@@ -26,32 +26,10 @@ jobs:
       run:
         shell: bash
     steps:
-      # Sparse: another worker's tree carries a path with a backslash in it,
-      # which git on Windows refuses to check out ("invalid path"). Only this
-      # worker's directory is needed here anyway.
+      # The binpazer probe builds against refs/bin-file-fmt, a submodule.
       - uses: actions/checkout@v4
         with:
           submodules: true
-          sparse-checkout: |
-            plan/research/storage-protocol
-            .github/workflows
-            refs
-          sparse-checkout-cone-mode: true
-|
-            plan/research/storage-protocol
-            .github/workflows
-          sparse-checkout-cone-mode: true
-
-      # binpazer lives in its own repository. The probe module carries a local
-      # replace for development; rewrite it to the checkout here. A
-      # failed checkout fails the job: a missing prerequisite is reported, never
-      # skipped.
-      - name: check out bin-file-fmt
-        id: binfmt
-        uses: actions/checkout@v4
-        with:
-          repository: wow-look-at-my/bin-file-fmt
-          path: refs/bin-file-fmt
 
       - uses: actions/setup-go@v5
         with:

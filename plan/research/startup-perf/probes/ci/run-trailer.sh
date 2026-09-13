@@ -21,7 +21,10 @@ N="${BENCH_N:-400}"
 {
 	echo "# cooked trailer: $(uname -s) $(uname -m)"
 	echo
-	echo "- runner label: \`${RUNNER_LABEL:-unknown}\`  (GitHub Actions hosted runner)"
+	echo "> Measured on a GitHub Actions hosted runner. Not a development machine."
+	echo
+	echo "- runner label: \`${RUNNER_LABEL:-unknown}\`"
+	echo "- commit: \`${GITHUB_SHA:-?}\`"
 	echo "- run: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-?}/actions/runs/${GITHUB_RUN_ID:-?}"
 	echo "- go: $(go version)"
 	echo "- cc: $(${CC:-cc} --version 2>&1 | head -1)"
@@ -53,7 +56,8 @@ hyperfine --shell=none --warmup "$WARMUP" --runs "$RUNS" \
 	-n "Go, 3 KiB trailer"   "$OUT/trailer-0 quiet" \
 	-n "Go, 1 MiB trailer"   "$OUT/trailer-1m quiet" \
 	-n "Go, 10 MiB trailer"  "$OUT/trailer-10m quiet" \
-	> "$OUT/trailer-exec.console.txt" 2>&1
+	2>&1 | tee "$OUT/trailer-exec.console.txt"
+[ -s "$OUT/trailer-exec.md" ] || { echo "FATAL: hyperfine wrote no markdown table" >&2; exit 1; }
 cat "$OUT/trailer-exec.md" >> "$OUT/trailer.md"
 
 {
