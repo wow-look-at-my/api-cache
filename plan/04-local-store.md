@@ -33,7 +33,7 @@ One result is one file, a binpazer container (`refs/bin-file-fmt`, MIT). The map
 | `Raw` × N | 4 | a marker for an output stored as a sibling file, see "Restore" |
 | Block Index + footer | 65533 | `footer → index → directory → seek` |
 
-Why binpazer over a fixed-width table (`container-format.md`, "criteria table"): per-block compression with a codec registry so stderr stays stored while DWARF gets zstd; per-block CRC-32C over the stored bytes, checkable before any decoder runs; a spec with forward-compatibility rules; C and C++ readers in-tree, which matters if a native client is ever built. Its cost is measured: 187 µs versus 60 µs for a single-member read on the ubuntu runner, 71 µs versus 47 µs on the M1, against a 501 to 1,266 µs restore that follows. The read path is under 15% of the hit. Two implementation rules come from the same measurements:
+Why binpazer over a fixed-width table (`container-format.md`, "criteria table"): per-block compression with a codec registry so stderr stays stored while DWARF gets zstd; a spec with forward-compatibility rules; C and C++ readers in-tree, which matters if a native client is ever built. Its cost is measured: 187 µs versus 60 µs for a single-member read on the ubuntu runner, 71 µs versus 47 µs on the M1, against a 501 to 1,266 µs restore that follows. The read path is under 15% of the hit. Two implementation rules come from the same measurements:
 
 - **Size every read.** `io.ReadAll` costs 77% more than a sized read; the directory carries every size.
 - **Pool the codecs, use one-shot decode.** A fresh `lz4.NewReader` per member allocates 8.4 MB (identical on all three runners); a pooled `zstd.DecodeAll` allocates 60 bytes. The engine registers its own pooled codecs with binpazer's `RegisterCodec`.
@@ -45,7 +45,7 @@ Roles in the directory are a small closed enum, not free strings, so a restored 
 
 ## Atomicity and durability
 
-- **Write:** assemble in `tmp/` (same filesystem), CRC every block, rename into place. On NTFS rename over an open file fails (measured), so the store renames the old entry aside to a `.old-*` name and unlinks it after; a failure to unlink is a retry, never an error.
+- **Write:** assemble in `tmp/` (same filesystem), write one CRC-32C over the whole container into its footer, rename into place. On NTFS rename over an open file fails (measured), so the store renames the old entry aside to a `.old-*` name and unlinks it after; a failure to unlink is a retry, never an error.
 - **No fsync.** It costs +7% on ext4, +356% on APFS and +966% on NTFS at 512 KiB (`local-layout.md`). A torn entry after a power cut is a miss, because the read path verifies CRC-32C over the stored bytes before decoding. The checksum is not optional.
 - **Restore:** each output is written to a temp file in the destination's directory and renamed, with the caller's umask and the stored executable bit. A reader of a half-restored entry sees the old file or the new one.
 - **Startup sweep** of `tmp/.tmp-*` under the exclusive lock, lifted from go-s3-server's `NewStorage`.
@@ -53,11 +53,11 @@ Roles in the directory are a small closed enum, not free strings, so a restored 
 
 ## Integrity
 
-CRC-32C per block over the stored bytes (binpazer `has_crc`), checked on every read. 23 µs per 512 KiB on x86, 67 µs on the M1. Never SHA-256 for integrity: 62x the cost on a machine without `sha_ni` for nothing, since integrity is not authenticity. An entry that fails its CRC is treated as a miss, deleted, counted (`corrupt_entry`), and logged once per build.
+One CRC-32C per entry, over the whole container as stored, kept in the container's footer and checked on every read before any decoder runs; a raw sibling file (clone or link mode) has its own CRC recorded in the directory, since that file has no header. 23 µs per 512 KiB on x86, 67 µs on the M1. Not per block: binpazer offers `has_crc` per block, but the object dominates the entry and a hit reads the whole container anyway, so per-block verification saves nothing and its measured ~11% pack cost buys nothing. The checksum exists for the no-fsync rename path, a garbled remote transfer, and our own writer's bugs; it is not for bit rot, which only ZFS guards against among the filesystems in use (APFS checksums metadata only; ext4, XFS and NTFS checksum no file data by default). Never SHA-256 for integrity: 62x the cost on a machine without `sha_ni` for nothing, since integrity is not authenticity. An entry that fails its CRC is treated as a miss, deleted, counted (`corrupt_entry`), and logged once per build.
 
 ## Filesystems, and the rule for filesystem-specific code
 
-The filesystems in scope are the ones actually in use: ext3 and ext4, XFS, ZFS (Linux and macOS), APFS, NTFS, and overlayfs inside Docker (where the store is normally a bind-mounted host directory, so the host filesystem applies). Every one of them runs the same portable path: write a temp sibling, CRC every block, rename, restore by copy, verify on read. That path is the default everywhere and is the only path that is not optional.
+The filesystems in scope are the ones actually in use: ext3 and ext4, XFS, ZFS (Linux and macOS), APFS, NTFS, and overlayfs inside Docker (where the store is normally a bind-mounted host directory, so the host filesystem applies). Every one of them runs the same portable path: write a temp sibling, one CRC over the entry, rename, restore by copy, verify on read. That path is the default everywhere and is the only path that is not optional.
 
 A filesystem-specific optimisation is admitted only under all of these rules, because a wrong guess here corrupts a build tree or a cache rather than slowing it:
 
