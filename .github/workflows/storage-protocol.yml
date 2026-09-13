@@ -11,6 +11,10 @@ on:
       - '.github/workflows/storage-protocol*.yml'
       - 'plan/research/storage-protocol/TRIGGER'
 
+concurrency:
+  group: storage-protocol
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

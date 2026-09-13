@@ -234,6 +234,15 @@ against the cooked Go binary — about 7 seconds on a 10,000-file build. That is
 the only daemon configuration the numbers support, and it costs a second
 language and a protocol two implementations must agree on.
 
+**They suggest the platform changes the answer more than the language does.**
+A static C hello costs 451 µs on Linux x64 and 5,200 µs on Windows. Against
+that floor Go is 2.31x on Linux and only 1.39x on Windows, so an argument for
+rewriting in C is an argument about Linux and macOS build times, not about
+Windows ones. The lever that IS large on Windows is the import set: net/http,
+encoding/xml and text/template cost 2.2 ms per exec there against 0.22 ms on
+Linux, a quarter of the whole Windows exec, and a Go implementation controls
+that directly by not importing what it does not use.
+
 **They suggest that if the wrapper is written natively, the link mode is not a
 detail.** Static linking is worth 30-40% in C, dynamic `<iostream>` costs as
 much as Go, and a dynamically linked C daemon client spends 190 µs on `ld.so`

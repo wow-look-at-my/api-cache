@@ -24,6 +24,10 @@ on:
       - 'plan/research/startup-perf/TRIGGER'
   workflow_dispatch:
 
+concurrency:
+  group: startup-perf
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
