@@ -5,11 +5,24 @@ choice costs, and what the measurements say about the two decisions that
 actually matter: **one file per result or one file per output**, and **how the
 outputs get back into the build tree**.
 
-> Numbers in this file are labelled with where they came from. Anything marked
-> `[sandbox]` is from the development VM, which runs many agents at once; it is
-> noisy and indicative only. Anything marked `[ci]` is from a GitHub Actions
-> runner via `.github/workflows/storage-protocol.yml`, with the run URL in
-> `probes/ci-results-*/summary.md`.
+> **Where the numbers come from.** `[ci]` numbers are from a GitHub Actions
+> runner via `.github/workflows/storage-protocol.yml` and are the ones to
+> quote. `[sandbox]` numbers are from the development VM, which runs many
+> agents at once; they are noisy and are kept only where CI has not replaced
+> them yet.
+>
+> **`[ci] ubuntu-latest`** — AMD EPYC 7763 64-Core, 4 vCPU, **`sha_ni` and
+> `avx2` present**, ext4 on Azure premium storage, Go 1.26.8, `-benchtime 2s`.
+> Run: <https://github.com/wow-look-at-my/api-cache/actions/runs/34728376981>.
+> Raw files in `probes/ci-results-ubuntu-latest/`.
+>
+> **`[sandbox]`** — Intel Xeon @2.80GHz, 4 vCPU, **no `sha_ni`** (avx2,
+> avx512f, bmi2), ext4 on a local virtio disk, Go 1.26.0, Firecracker VM.
+> Raw files in `probes/results/`.
+>
+> The two machines differ in exactly the way that makes the comparison useful:
+> one has the SHA-256 instruction and slow storage, the other has fast storage
+> and no SHA-256 instruction.
 
 ## What a compiler-cache entry actually is
 
@@ -239,60 +252,80 @@ the whole GBCI index is scoped to the `go-buildcache/v1<64-hex>` key shape.
 
 ## Measured: what a lookup costs
 
-`probes/readcost_test.go`, hot page cache, ext4. `[sandbox]` — the CI numbers
-supersede these.
+`probes/readcost_test.go`, hot page cache, ext4.
 
-| operation | ns/op |
-|---|--:|
-| `syscall.Stat` (hit) | 678 |
-| `syscall.Stat` (miss, ENOENT) | 511 |
-| `os.Stat` (hit, with FileInfo alloc) | 877 |
-| open + close, 4 KiB file | 2,731 |
-| open + read-all, 4 KiB | 3,261 |
-| open + read-all, 200 KiB | 7,991 |
-| open + read-all, 512 KiB | 20,030 |
-| open + read-all, 5 MiB | 378,299 |
+| operation | `[ci]` ubuntu-latest ns/op | `[sandbox]` ns/op |
+|---|--:|--:|
+| `syscall.Stat` (hit) | 1,711 | 678 |
+| `syscall.Stat` (miss, ENOENT) | 1,174 | 511 |
+| `os.Stat` (hit, with FileInfo alloc) | 1,896 | 877 |
+| `os.Stat` (miss) | 1,331 | 713 |
+| open + close, 4 KiB file | 5,389 | 2,731 |
+| open + read-all, 4 KiB | 6,529 | 3,261 |
+| open + read-all, 200 KiB | 14,363 | 7,991 |
+| open + read-all, 512 KiB | 26,401 | 20,030 |
+| open + read-all, 5 MiB | 180,410 | 378,299 |
+
+The CI runner's syscalls are uniformly ~2.5× slower (a hardened cloud kernel
+with full speculative-execution mitigations), while its large sequential reads
+are twice as fast. Both shapes are real deployment targets; the *ratios* below
+hold on both.
 
 Three things fall out.
 
-**1. A miss is a stat, and a stat is cheap.** 0.5 µs. ccache's dynamic depth
-turns one miss into three stats — 1.5 µs — which is still nothing next to a
-compile, but it is 3× for no benefit if the depth is fixed instead. A fixed
-two-level shard costs one stat and needs no promotion logic, no
-`move_to_wanted_cache_level`, and no rename racing another process.
+**1. A miss is a stat, and a stat is cheap.** 1.2 µs `[ci]`, 0.5 µs
+`[sandbox]`. ccache's dynamic depth turns one miss into three stats — 3.5 µs
+`[ci]` — which is still nothing next to a compile, but it is 3× for no benefit
+if the depth is fixed instead. A fixed two-level shard costs one stat and needs
+no promotion logic, no `move_to_wanted_cache_level`, and no rename racing
+another process.
 
-**2. Open is 4× stat.** 2.7 µs to open and close a file you then read nothing
-from. That is the tax a multi-blob layout pays per extra member.
+**2. Open is ~3–4× stat.** 5.4 µs `[ci]` / 2.7 µs `[sandbox]` to open and close
+a file you then read nothing from. That is the tax a multi-blob layout pays per
+extra member.
 
 **3. One container beats N blobs, and the gap is exactly the opens.** Same
 540 KiB of payload, as one file or as four (512 + 8 + 4 + 16 KiB):
 
-| layout | ns/op |
-|---|--:|
-| 1 open, read 540 KiB | 20,749 |
-| 4 opens, read 540 KiB total | 30,509 |
+| layout | `[ci]` ns/op | `[sandbox]` ns/op |
+|---|--:|--:|
+| 1 open, read 540 KiB | 27,548 | 20,749 |
+| 4 opens, read 540 KiB total | 47,181 | 30,509 |
 
-+9.8 µs for three extra opens, ~3.3 µs each — consistent with the open+close
-number. At 4,000 compiles that is 39 ms of wall clock across a whole build:
-real, but far smaller than one compile. The container wins, but it wins on
-*bytes-per-syscall*, not by an order of magnitude, and a CAS layout that
-de-duplicates a `.d` file across twenty configurations may well pay for the
-extra opens in disk space.
++19.6 µs `[ci]` / +9.8 µs `[sandbox]` for three extra opens — ~6.5 µs and
+~3.3 µs each respectively, consistent with each machine's open+close number.
+At 4,000 compiles that is **78 ms `[ci]` / 39 ms `[sandbox]`** of wall clock
+across a whole build: real, but far smaller than one compile. The container
+wins, but it wins on *bytes-per-syscall*, not by an order of magnitude, and a
+CAS layout that de-duplicates a `.d` file across twenty configurations may well
+pay for the extra opens in disk space.
 
 ## Measured: what a restore costs
 
 `probes/restore_test.go` (Linux only). This is the other half of a hit — the
 outputs have to end up where the compiler would have written them.
 
+`[ci]` ubuntu-latest:
+
+| restore method | 200 KiB | 512 KiB | 5 MiB |
+|---|--:|--:|--:|
+| read + write + rename | 474 µs | 1,277 µs | 12,625 µs |
+| `copy_file_range` + rename | 501 µs | 1,283 µs | 12,621 µs |
+| `link()` (hard link) | 12.3 µs | 12.3 µs | 12.3 µs |
+| `FICLONE` (reflink) | unsupported | unsupported | unsupported |
+
+`[sandbox]`, for contrast:
+
 | restore method | 200 KiB | 512 KiB | 5 MiB |
 |---|--:|--:|--:|
 | read + write + rename | 246.7 µs | 241.3 µs | 1,871 µs |
 | `copy_file_range` + rename | 147.3 µs | 240.6 µs | 1,671 µs |
 | `link()` (hard link) | 4.0 µs | 4.0 µs | 4.0 µs |
-| `FICLONE` (reflink) | — | — | — |
+| `FICLONE` (reflink) | unsupported | unsupported | unsupported |
 
-`[sandbox]`. `FICLONE` returned `EOPNOTSUPP`: **ext4 has no reflink support.**
-The probe skips rather than pretending, and that skip is the finding — reflink
+`TestReflinkSupport` reports `EOPNOTSUPP` on **both** machines: **ext4 has no
+reflink support**, and that answer is recorded in the results rather than
+skipped over — reflink
 restore is a btrfs/XFS-with-reflink/APFS feature, not something to design the
 hot path around. On the filesystems that do support it, a clone is a metadata
 operation like a hard link but stays copy-on-write, which is why ccache
@@ -300,12 +333,24 @@ documents `file_clone` as "completely safe to use" while warning that
 `hard_link` corrupts the cache if anything writes to the restored file (and
 mitigates it by making cached files read-only).
 
-The numbers say the restore, not the lookup, is where a hit spends its time:
-242 µs to put back a 512 KiB object versus 20 µs to read it. `copy_file_range`
-is worth having — it is one syscall, it never moves bytes through userspace,
-and on a reflink filesystem the kernel may turn it into a share — but on ext4
-it buys 10–20%, not an order of magnitude. Hard-linking is 60× faster and
-comes with a correctness cliff.
+The numbers say the restore, not the lookup, is where a hit spends its time.
+On CI: **1,277 µs to put back a 512 KiB object versus 26 µs to read it — 48×.**
+On the sandbox it is 241 µs versus 20 µs — 12×. Either way the write dominates,
+and the CI number is the one that looks like a real developer machine with
+network-backed storage.
+
+`copy_file_range` is worth having in principle — one syscall, no bytes through
+userspace, and on a reflink filesystem the kernel may turn it into a share —
+but measured it buys **nothing on the CI runner** (501 vs 474 µs at 200 KiB,
+within noise at the larger sizes) and 10–20% on the sandbox. It is not the
+optimisation it looks like on ext4.
+
+Hard-linking is **39–104× faster** and constant in the file size, and it comes
+with a correctness cliff: the cache entry and the build tree share an inode, so
+anything that writes to the restored object corrupts the cache. ccache mitigates
+by making cached files read-only and documents the risk; it also **disables
+compression** whenever `hard_link` or `file_clone` is on, because you cannot
+link into a compressed blob.
 
 Platform equivalents: `copy_file_range(2)` on Linux, `clonefile(2)` on macOS
 (APFS, always CoW), `FSCTL_DUPLICATE_EXTENTS_TO_FILE` on Windows (ReFS only).
@@ -315,17 +360,24 @@ Platform equivalents: `copy_file_range(2)` on Linux, `clonefile(2)` on macOS
 
 | hash | 4 KiB | 200 KiB | 512 KiB | 5 MiB | throughput |
 |---|--:|--:|--:|--:|--:|
-| SHA-256 (`crypto/sha256`) | 11.5 µs | 560 µs | 1,421 µs | 14,380 µs | **365 MB/s** |
-| CRC-32C (`hash/crc32` Castagnoli) | 0.16 µs | 8.4 µs | 21.2 µs | 247 µs | **24 GB/s** |
+| SHA-256 `[ci]`, **with `sha_ni`** | 2.7 µs | 129 µs | 330 µs | 3,301 µs | **1,588 MB/s** |
+| SHA-256 `[sandbox]`, **no `sha_ni`** | 11.5 µs | 560 µs | 1,421 µs | 14,380 µs | **365 MB/s** |
+| CRC-32C `[ci]` | 0.17 µs | 8.9 µs | 23.2 µs | 227 µs | **23 GB/s** |
+| CRC-32C `[sandbox]` | 0.16 µs | 8.4 µs | 21.2 µs | 247 µs | **24 GB/s** |
 
-`[sandbox]`, on a CPU with **no `sha_ni`** (flags: avx2, avx512f, bmi2 — no
-sha_ni). This is the single most important number in this document, because it
-is the one that changes the design:
+This is the single most important measurement in this document, because the
+two runners bracket the design question rather than answering it:
 
-- Hashing a 5 MiB object with SHA-256 costs **14 ms** — comparable to the
-  compile you are trying to avoid. On a CPU *with* SHA-NI, Go's `crypto/sha256`
-  runs roughly 4–5× faster (~1.5–2 GB/s), so this is hardware-dependent in a
-  way a build cache cannot assume.
+- **The SHA-NI instruction is worth 4.3×** — 1,588 MB/s against 365 MB/s, same
+  Go code, same `crypto/sha256`. Hashing a 5 MiB object costs 3.3 ms on the
+  EPYC and **14.4 ms** on the Xeon, and 14 ms is comparable to the compile you
+  are trying to avoid.
+- **A build cache cannot assume the instruction is there.** SHA-NI shipped on
+  AMD from Zen (2017) and on Intel mainstream desktop/server only from Ice Lake
+  (2019) / Alder Lake; plenty of build machines and most CI VMs before that
+  generation lack it, and the sandbox here is a live example.
+- **CRC-32C is machine-independent** — 23–24 GB/s on both, because it is the
+  `crc32q` instruction and has been on every x86-64 since SSE4.2 (2008).
 - ccache does not use SHA-256. It uses **BLAKE3** (`src/ccache/hash.hpp`
   includes `blake3.h`), truncated to 20 bytes. BLAKE3's published single-thread
   throughput is around 1–3 GB/s on x86-64 with AVX2 and it does not depend on a
@@ -337,7 +389,11 @@ is the one that changes the design:
 
 The split is: a **cryptographic** hash (BLAKE3) for the *key*, because the key
 is a collision-security boundary; a **fast** checksum (CRC-32C or XXH3) for
-*integrity*, because that is only catching a bad disk.
+*integrity*, because that is only catching a bad disk. The measured argument for
+BLAKE3 over SHA-256 is not that it is faster on the best machine — it is that
+it is **uniformly** fast: SHA-256 varies 4.3× with one CPU feature, and a cache
+whose per-compile cost swings by 11 ms depending on the host is hard to reason
+about.
 
 ## The layout decision, as a table
 
