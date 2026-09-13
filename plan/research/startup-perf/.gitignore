@@ -1,0 +1,3 @@
+bin/
+probes/ci/out/
+probes/**/out/

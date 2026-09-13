@@ -1,0 +1,8 @@
+Artifact: storage-protocol-ubuntu-latest
+Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34729381343
+Commit: 241bdc50b8ef8b8a550eaed7d81e5987a3843bb8
+Runner: ubuntu-latest, AMD EPYC 7763, 4 vCPU, sha_ni + avx2, ext4 on /dev/root
+Toolchain: gcc/g++, Go 1.26.8 linux/amd64
+benchtime: 2s
+Covers every probe in the suite, including restore_portable_test.go and the
+Linux-only restore_test.go (copy_file_range, FICLONE).

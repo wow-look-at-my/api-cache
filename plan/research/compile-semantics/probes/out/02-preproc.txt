@@ -1,0 +1,102 @@
+
+===== STEP: gcc -E : the linemarker preamble (source path is embedded AS WRITTEN)
+----- $ sh -c gcc -E hello.c | head -12
+# 0 "hello.c"
+# 0 "<built-in>"
+# 0 "<command-line>"
+# 1 "/usr/include/stdc-predef.h" 1 3 4
+# 0 "<command-line>" 2
+# 1 "hello.c"
+# 1 "/usr/include/stdio.h" 1 3 4
+# 28 "/usr/include/stdio.h" 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/libc-header-start.h" 1 3 4
+# 33 "/usr/include/x86_64-linux-gnu/bits/libc-header-start.h" 3 4
+# 1 "/usr/include/features.h" 1 3 4
+# 394 "/usr/include/features.h" 3 4
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -E -P : no linemarkers at all
+----- $ sh -c gcc -E -P hello.c | head -6
+
+typedef long unsigned int size_t;
+typedef __builtin_va_list __gnuc_va_list;
+typedef unsigned char __u_char;
+typedef unsigned short int __u_short;
+typedef unsigned int __u_int;
+----- RESULT: PASS (exit 0)
+
+===== STEP: clang -E : a DIFFERENT preamble shape from gcc's
+----- $ sh -c clang -E hello.c | head -12
+# 1 "hello.c"
+# 1 "<built-in>" 1
+# 1 "<built-in>" 3
+# 389 "<built-in>" 3
+# 1 "<command line>" 1
+# 1 "<built-in>" 2
+# 1 "hello.c" 2
+# 1 "/usr/include/stdio.h" 1 3 4
+# 28 "/usr/include/stdio.h" 3 4
+# 1 "/usr/include/x86_64-linux-gnu/bits/libc-header-start.h" 1 3 4
+# 33 "/usr/include/x86_64-linux-gnu/bits/libc-header-start.h" 3 4
+# 1 "/usr/include/features.h" 1 3 4
+----- RESULT: PASS (exit 0)
+
+===== STEP: __DATE__ / __TIME__ / __FILE__ / __TIMESTAMP__ expansion
+----- $ sh -c gcc -E -P timey.c | tail -2
+
+int main(void){ printf("%s %s %s %s\n", "Sep 13 2026", "00:38:50", "timey.c", "Sun Sep 13 00:06:49 2026"); return 0; }
+----- RESULT: PASS (exit 0)
+
+===== STEP: stability: the same -E run twice must hash identically
+----- $ sh -c a=$(gcc -E hello.c | md5sum); b=$(gcc -E hello.c | md5sum);
+	       printf "%s\n%s\n" "$a" "$b"; [ "$a" = "$b" ]
+bcf203b9fcf9f96b47615945078544ad  -
+bcf203b9fcf9f96b47615945078544ad  -
+----- RESULT: PASS (exit 0)
+
+===== STEP: path leakage: invoked from the PARENT dir as src/hello.c
+----- $ sh -c cd .. && gcc -E -Isrc src/hello.c | head -6
+# 0 "src/hello.c"
+# 0 "<built-in>"
+# 0 "<command-line>"
+# 1 "/usr/include/stdc-predef.h" 1 3 4
+# 0 "<command-line>" 2
+# 1 "src/hello.c"
+----- RESULT: PASS (exit 0)
+
+===== STEP: path leakage: invoked with an ABSOLUTE source path
+----- $ sh -c gcc -E "$PWD/hello.c" | head -6
+# 0 "/home/user/api-cache/plan/research/compile-semantics/probes/src/hello.c"
+# 0 "<built-in>"
+# 0 "<command-line>"
+# 1 "/usr/include/stdc-predef.h" 1 3 4
+# 0 "<command-line>" 2
+# 1 "/home/user/api-cache/plan/research/compile-semantics/probes/src/hello.c"
+----- RESULT: PASS (exit 0)
+
+===== STEP: -P still keeps the PCH marker (it is content, not a linemarker)
+----- $ sh -c 
+	set -e
+	T=$(mktemp -d); trap "rm -rf $T" EXIT
+	cp local.h nested.h "$T/"
+	printf "#include \"local.h\"\nint main(void){return 0;}\n" > "$T/u.c"
+	( cd "$T" && gcc -x c-header local.h -o local.h.gch 2>/dev/null
+	  printf "with -E:   "; gcc -E -fpch-preprocess u.c | grep pch_preprocess
+	  printf "with -E -P: "; gcc -E -P -fpch-preprocess u.c | grep pch_preprocess )
+with -E:   #pragma GCC pch_preprocess "local.h.gch"
+with -E -P: #pragma GCC pch_preprocess "local.h.gch"
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -E -fdirectives-only : macros kept as #define
+----- $ sh -c gcc -E -fdirectives-only hello.c | head -6
+# 0 "hello.c"
+# 0 "<built-in>"
+#define __STDC__ 1
+# 0 "<built-in>"
+#define __STDC_VERSION__ 201710L
+# 0 "<built-in>"
+----- RESULT: PASS (exit 0)
+
+=========================================================
+PROBE SUMMARY: 9 steps, 0 FAILURES
+=========================================================

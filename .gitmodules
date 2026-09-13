@@ -1,0 +1,18 @@
+[submodule "refs/bin-file-fmt"]
+	path = refs/bin-file-fmt
+	url = https://github.com/wow-look-at-my/bin-file-fmt
+[submodule "refs/sccache"]
+	path = refs/sccache
+	url = https://github.com/mozilla/sccache
+[submodule "refs/buildcache"]
+	path = refs/buildcache
+	url = https://gitlab.com/bits-n-bites/buildcache.git
+[submodule "refs/ccache"]
+	path = refs/ccache
+	url = https://github.com/ccache/ccache
+[submodule "refs/bazel-remote"]
+	path = refs/bazel-remote
+	url = https://github.com/buchgr/bazel-remote
+[submodule "refs/remote-apis"]
+	path = refs/remote-apis
+	url = https://github.com/bazelbuild/remote-apis

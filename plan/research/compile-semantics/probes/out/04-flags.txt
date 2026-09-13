@@ -1,0 +1,103 @@
+
+===== STEP: gcc: -march=native expansion via '-### -E -' (ccache's technique)
+----- $ sh -c gcc -### -E - -march=native 2>&1 | grep -o "/cc1 -E.*" | cut -c1-700
+/cc1 -E -quiet -imultiarch x86_64-linux-gnu - "-march=cascadelake" -mmmx -mpopcnt -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -mno-sse4a -mno-fma4 -mno-xop -mfma -mavx512f -mbmi -mbmi2 -maes -mpclmul -mavx512vl -mavx512bw -mavx512dq -mavx512cd -mno-avx512er -mno-avx512pf -mno-avx512vbmi -mno-avx512ifma -mno-avx5124vnniw -mno-avx5124fmaps -mno-avx512vpopcntdq -mno-avx512vbmi2 -mno-gfni -mno-vpclmulqdq -mavx512vnni -mno-avx512bitalg -mno-avx512bf16 -mno-avx512vp2intersect -mno-3dnow -madx -mabm -mno-cldemote -mclflushopt -mclwb -mno-clzero -mcx16 -mno-enqcmd -mf16c -mfsgsbase -mfxsr -mhle -msahf -mno-lwp -mlzcnt -mmovbe -mno-movdir64b -mno-movdiri -mno-mwaitx -mno-pconfig -mno-p
+----- RESULT: PASS (exit 0)
+
+===== STEP: clang: the same, via the "-cc1" line
+----- $ sh -c clang -### -E - -march=native 2>&1 | grep -o "\"-cc1\".*" | cut -c1-500
+"-cc1" "-triple" "x86_64-pc-linux-gnu" "-E" "-disable-free" "-clear-ast-before-backend" "-disable-llvm-verifier" "-discard-value-names" "-main-file-name" "-" "-mrelocation-model" "pic" "-pic-level" "2" "-pic-is-pie" "-mframe-pointer=all" "-fmath-errno" "-ffp-contract=on" "-fno-rounding-math" "-mconstructor-aliases" "-funwind-tables=2" "-target-cpu" "cascadelake" "-target-feature" "+prfchw" "-target-feature" "-cldemote" "-target-feature" "+avx" "-target-feature" "+aes" "-target-feature" "+sahf" "
+----- RESULT: PASS (exit 0)
+
+===== STEP: prepare a source with an error, for the diagnostics probes
+----- $ sh -c printf "int main(void){int x; return y;}\n" > "$1/bad.c" _ /tmp/tmp.viMtSmjetI
+----- RESULT: PASS (exit 0)
+
+===== STEP (expects exit nonzero): diagnostics with stderr a PIPE: plain text, no escapes
+----- $ sh -c gcc -c "$1/bad.c" -o "$1/bad.o" > "$1/o.txt" 2>&1; rc=$?; cat -v "$1/o.txt" | head -3; exit $rc _ /tmp/tmp.viMtSmjetI
+/tmp/tmp.viMtSmjetI/bad.c: In function 'main':
+/tmp/tmp.viMtSmjetI/bad.c:1:30: error: 'y' undeclared (first use in this function)
+    1 | int main(void){int x; return y;}
+----- RESULT: PASS (exit 1, non-zero as expected)
+
+===== STEP (expects exit nonzero): diagnostics with -fdiagnostics-color=always: ANSI escapes present
+----- $ sh -c gcc -fdiagnostics-color=always -c "$1/bad.c" -o "$1/bad.o" > "$1/o.txt" 2>&1; rc=$?; cat -v "$1/o.txt" | head -3; exit $rc _ /tmp/tmp.viMtSmjetI
+^[[01m^[[K/tmp/tmp.viMtSmjetI/bad.c:^[[m^[[K In function '^[[01m^[[Kmain^[[m^[[K':
+^[[01m^[[K/tmp/tmp.viMtSmjetI/bad.c:1:30:^[[m^[[K ^[[01;31m^[[Kerror: ^[[m^[[K'^[[01m^[[Ky^[[m^[[K' undeclared (first use in this function)
+    1 | int main(void){int x; return ^[[01;31m^[[Ky^[[m^[[K;}
+----- RESULT: PASS (exit 1, non-zero as expected)
+NOTE: the wrapper always captures through a pipe, so the compiler never colours
+      on its own. ccache forces colour ON for the child and strips on replay.
+
+===== STEP: -gsplit-dwarf produces a .dwo sibling
+----- $ sh -c cd "$1" && gcc -g -gsplit-dwarf -c "$2/hello.c" -o sd.o && ls -1 sd.o sd.dwo _ /tmp/tmp.viMtSmjetI /home/user/api-cache/plan/research/compile-semantics/probes/src
+sd.dwo
+sd.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: --coverage produces a .gcno sibling
+----- $ sh -c cd "$1" && gcc --coverage -c "$2/hello.c" -o cov.o && ls -1 cov.o cov.gcno _ /tmp/tmp.viMtSmjetI /home/user/api-cache/plan/research/compile-semantics/probes/src
+cov.gcno
+cov.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: -fsyntax-only exits 0 and writes NOTHING, even with -c -o
+----- $ sh -c cd "$1" && rm -f syn.o && gcc -fsyntax-only -c "$2/hello.c" -o syn.o && test ! -f syn.o _ /tmp/tmp.viMtSmjetI /home/user/api-cache/plan/research/compile-semantics/probes/src
+----- RESULT: PASS (exit 0)
+
+===== STEP (expects exit nonzero): gcc -c -o - : FAILS outright on this platform (the assembler cannot write to stdout)
+----- $ sh -c gcc -c hello.c -o - > "$1/o.txt" 2>&1; rc=$?; head -2 "$1/o.txt"; exit $rc _ /tmp/tmp.viMtSmjetI
+Assembler messages:
+Fatal error: can't open a bfd on stdout -
+----- RESULT: PASS (exit 1, non-zero as expected)
+
+===== STEP: -S writes assembly and is a normal, cacheable compile
+----- $ sh -c gcc -S hello.c -o "$1/hello.s" && head -2 "$1/hello.s" _ /tmp/tmp.viMtSmjetI
+	.file	"hello.c"
+	.text
+----- RESULT: PASS (exit 0)
+
+===== STEP: response file: NESTED @file is expanded by gcc
+----- $ sh -c 
+	set -e
+	printf -- "-c\n-O2\n" > "$1/r1.rsp"
+	printf "@%s\n-o %s\n" "$1/r1.rsp" "$1/rsp.o" > "$1/r2.rsp"
+	gcc "@$1/r2.rsp" hello.c
+	test -f "$1/rsp.o"
+ _ /tmp/tmp.viMtSmjetI
+----- RESULT: PASS (exit 0)
+
+===== STEP: response file: shell-like quoting inside
+----- $ sh -c 
+	set -e
+	printf -- "-DSTR=\"a b\"\n-c\n-o %s\n" "$1/q.o" > "$1/q.rsp"
+	gcc "@$1/q.rsp" hello.c
+	test -f "$1/q.o"
+ _ /tmp/tmp.viMtSmjetI
+----- RESULT: PASS (exit 0)
+
+===== STEP: PCH: build a .gch and confirm gcc uses it (-H shows '! local.h.gch')
+----- $ sh -c 
+	set -e
+	cp local.h nested.h "$1/"
+	printf "#include \"local.h\"\nint main(void){return 0;}\n" > "$1/u.c"
+	cd "$1"
+	gcc -x c-header local.h -o local.h.gch 2>/dev/null
+	gcc -H -c u.c -o u.o 2>&1 | head -2
+ _ /tmp/tmp.viMtSmjetI
+! local.h.gch
+ u.c
+----- RESULT: PASS (exit 0)
+
+===== STEP: stdin source: gcc -x c -c - works, but has no source identity to key on
+----- $ sh -c echo "int main(void){return 0;}" | gcc -x c -c - -o "$1/stdin.o" && test -s "$1/stdin.o" _ /tmp/tmp.viMtSmjetI
+----- RESULT: PASS (exit 0)
+
+===== STEP: stdin source + -MD: the dep file does NOT name the source
+----- $ sh -c echo "int main(void){return 0;}" | gcc -x c -c - -MD -MF "$1/stdin.d" -o "$1/stdin.o" && cat "$1/stdin.d" _ /tmp/tmp.viMtSmjetI
+/tmp/tmp.viMtSmjetI/stdin.o: /usr/include/stdc-predef.h
+----- RESULT: PASS (exit 0)
+
+=========================================================
+PROBE SUMMARY: 15 steps, 0 FAILURES
+=========================================================

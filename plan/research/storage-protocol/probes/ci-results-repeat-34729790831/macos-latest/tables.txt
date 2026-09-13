@@ -1,0 +1,35 @@
+go: downloading github.com/klauspost/compress v1.20.0
+go: downloading github.com/pierrec/lz4/v4 v4.1.27
+go: downloading golang.org/x/sys v0.47.0
+=== RUN   TestRatios
+file                        raw        lz4    ratio         s2    ratio  s2-better    ratio     zstd-1    ratio     zstd-3    ratio     zstd-9    ratio
+testdata/small.o           6296       4341    0.689       4293    0.682       4018    0.638       3455    0.549       3249    0.516       3171    0.504
+testdata/mid.o           243888     122613    0.503     121902    0.500     111454    0.457      94968    0.389      90640    0.372      83684    0.343
+testdata/big_g1.o        423952     236059    0.557     239617    0.565     217131    0.512     169958    0.401     162482    0.383     154370    0.364
+testdata/big.o          1379328     596621    0.433     627960    0.455     542137    0.393     484140    0.351     425371    0.308     390932    0.283
+testdata/mid.d           116760       9451    0.081      10842    0.093      10083    0.086       6783    0.058       6516    0.056       5771    0.049
+--- PASS: TestRatios (0.17s)
+=== RUN   TestContainerOverhead
+format                      bytes   overhead      pct
+framed (ACE1)              403540        +72   0.018%
+tar (ustar)                407552      +4084   1.012%
+tar + manifest.json        408576      +5108   1.266%
+zip (stored)               403918       +450   0.112%
+zip (deflate)              112972    -290496 -72.000%
+raw member bytes           403468
+--- PASS: TestContainerOverhead (0.01s)
+=== RUN   TestClonefileSupport
+    restore_darwin_test.go:62: clonefile via syscall(2) number 462: FAILED (invalid argument). Expected: the generic syscall shim is deprecated on macOS. This is not a filesystem verdict.
+    restore_darwin_test.go:80: clonefile(2) via libSystem: SUPPORTED; cloned 524288 bytes as a copy-on-write share, in /var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/TestClonefileSupport3130756364/001
+--- PASS: TestClonefileSupport (0.00s)
+=== RUN   TestRenameOverOpenFile
+    restore_portable_test.go:165: GOOS=darwin: rename over an OPEN file SUCCEEDS; the open handle still reads "old"
+--- PASS: TestRenameOverOpenFile (0.00s)
+=== RUN   TestUnlinkOpenFile
+    restore_portable_test.go:192: GOOS=darwin: unlinking an OPEN file SUCCEEDS; the handle still reads "payload"
+--- PASS: TestUnlinkOpenFile (0.00s)
+=== RUN   TestLongPath
+    restore_portable_test.go:214: GOOS=darwin: a 368-character path works
+--- PASS: TestLongPath (0.00s)
+PASS
+ok  	apicache/probes	0.202s

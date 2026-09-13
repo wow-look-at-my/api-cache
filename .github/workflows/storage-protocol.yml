@@ -1,0 +1,82 @@
+name: storage-protocol
+
+# Benchmarks for the storage-protocol research worker. The sandbox the probes
+# were written in runs many workers at once, so every number that gets quoted
+# comes from here instead.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/storage-protocol*.yml'
+      - 'plan/research/storage-protocol/TRIGGER'
+
+concurrency:
+  group: storage-protocol
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: bench (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The binpazer probe builds against refs/bin-file-fmt, a submodule.
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: false
+
+      - name: environment
+        working-directory: plan/research/storage-protocol/probes
+        run: |
+          go version
+          go env GOOS GOARCH
+          gcc --version | head -1
+          g++ --version | head -1
+
+      - name: build the corpus
+        id: corpus
+        working-directory: plan/research/storage-protocol/probes
+        run: ./gen-testdata.sh
+
+      - name: run the probes
+        working-directory: plan/research/storage-protocol/probes
+        env:
+          RESULTS_DIR: ci-results
+          BENCHTIME: 2s
+          GOFLAGS: -mod=mod
+        run: |
+          ./run.sh
+
+      - name: summarise
+        working-directory: plan/research/storage-protocol/probes
+        run: |
+          go run ./cmd/benchreport \
+            -label "${{ matrix.os }}" \
+            -run "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -dir ci-results > ci-results/summary.md
+          cat ci-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          # Also to stdout: the job log is the copy that can be read back
+          # without downloading an artifact.
+          cat ci-results/summary.md
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: storage-protocol-${{ matrix.os }}
+          path: plan/research/storage-protocol/probes/ci-results/
+          if-no-files-found: error

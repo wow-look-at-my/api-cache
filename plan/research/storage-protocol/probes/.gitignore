@@ -1,0 +1,5 @@
+# build artifacts and test inputs: never commit binaries or .o files
+testdata/
+bin/
+*.o
+*.test

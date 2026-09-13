@@ -1,0 +1,40 @@
+SUPERSEDED -- LOCAL, NOISY, NOT A REPORTED NUMBER
+
+Taken on the shared development sandbox while other workers were running.
+Kept only as the record of how the probes were developed. Every number in
+the *.md files beside this one comes from a GitHub Actions runner.
+
+----
+
+# xml load cost
+
+- file: `/home/user/api-cli/samples/github/github.xml`
+- size: 30749 bytes, 663 lines
+- DOM nodes: 528
+- compiled templates (elements whose content holds a placeholder): 76
+- iterations per stage: 300
+
+- serialized sizes: xml 30749 B, gob 28737 B, flat 31202 B, cooked-templates 2862 B
+
+| stage | min us | p50 us | p90 us | mean us | note |
+|---|---|---|---|---|---|
+| read file | 6.7 | 10.2 | 30.4 | 22.0 | os.ReadFile, warm page cache |
+| parse (ParseDOM) | 891.1 | 1016.2 | 1751.5 | 1180.0 | encoding/xml into the DOM, file already in memory |
+| parse + compile | 998.8 | 1085.5 | 1843.6 | 1233.9 | ParseDOM then CompileContent over every element |
+| apidsl.FuncMap() | 5.4 | 6.3 | 15.4 | 10.0 | sprig TxtFuncMap plus the language's own helpers |
+| template.Parse x20 | 702.6 | 813.2 | 1526.0 | 1006.8 | text/template.Parse of 20 compiled sources, func map attached |
+| template.Execute x20 | 14.6 | 15.8 | 20.4 | 17.4 | executing the 20 already-parsed templates |
+| FULL: read+parse+compile+tparse | 1791.1 | 2604.3 | 3657.0 | 2602.7 | everything a naive per-exec load does, minus Execute |
+| gob decode (DOM mirror) | 335.0 | 384.3 | 460.6 | 438.4 | encoding/gob of the whole DOM |
+| flat decode (DOM) | 20.3 | 25.0 | 57.1 | 39.5 | hand-rolled string table + node array |
+| cooked decode (templates only) | 1.3 | 1.8 | 3.9 | 4.1 | length-prefixed compiled template sources, no DOM |
+| cooked decode + tparse x20 | 714.4 | 877.5 | 1615.5 | 1069.0 | the cooked form still pays text/template.Parse |
+| template.Parse x1 (largest) | 35.5 | 39.8 | 67.5 | 56.2 | one template, 436 bytes of source |
+| template.Parse x1 (smallest) | 31.8 | 36.9 | 58.6 | 49.7 | one template, 13 bytes of source |
+| template.Parse xALL (76) | 3369.1 | 3857.0 | 4431.3 | 3951.4 | every placeholder-bearing element in the config |
+| template.Parse x20, NO func map | 52.0 | 55.2 | 82.7 | 69.3 | same sources, Funcs() never called: isolates the map copy |
+| LAZY: cooked decode + 1 parse + 1 exec | 43.6 | 47.2 | 75.4 | 62.5 | what a wrapper pays when it parses only the template it reaches |
+| shared-root Parse x20 (full func map) | 94.1 | 104.1 | 150.0 | 135.8 | one root carries the 214-entry map, 20 associated templates |
+| shared-root Parse xALL (full func map) | 259.3 | 301.5 | 503.1 | 368.3 | one root, 76 associated templates |
+| Parse x20, 5-entry func map | 74.9 | 82.3 | 133.3 | 106.3 | per-template Funcs() but with sprig dropped |
+| BEST: cooked decode + shared-root Parse xALL | 259.9 | 299.6 | 633.0 | 364.0 | cooked form plus a single func-map copy: the whole per-exec config cost |

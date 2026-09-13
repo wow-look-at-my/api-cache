@@ -1,0 +1,15 @@
+go: downloading github.com/klauspost/compress v1.19.1
+=== RUN   TestBinpazerStreamingWriterLosesIndex
+    binpazer_test.go:318: streamed file: len=145024 hasIndex=false
+    binpazer_test.go:320: Find(directory) -> [], err=binpazer: block payload claims 6762810245124 bytes but only 0 remain in the input: binpazer: truncated input
+    binpazer_test.go:331: seekable file: len=145024 hasIndex=true Find(directory) -> [144696] err=<nil>
+--- PASS: TestBinpazerStreamingWriterLosesIndex (0.01s)
+=== RUN   TestBinpazerRoundTrip
+    binpazer_test.go:450: stored       file=580400 raw=579824 overhead=+576 (0.099%)
+    binpazer_test.go:450: stored+crc   file=580424 raw=579824 overhead=+600 (0.103%)
+    binpazer_test.go:450: zstd         file=145024 raw=579824 overhead=-434800 (-74.988%)
+    binpazer_test.go:450: zstd+crc     file=145048 raw=579824 overhead=-434776 (-74.984%)
+    binpazer_test.go:450: lz4          file=225968 raw=579824 overhead=-353856 (-61.028%)
+--- PASS: TestBinpazerRoundTrip (0.03s)
+PASS
+ok  	apicache/probes/binpazer	0.046s

@@ -1,0 +1,290 @@
+
+===== STEP: gcc --version
+----- $ gcc --version
+gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+Copyright (C) 2023 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+----- RESULT: PASS (exit 0)
+
+===== STEP: clang --version
+----- $ clang --version
+Ubuntu clang version 18.1.3 (1ubuntu1)
+Target: x86_64-pc-linux-gnu
+Thread model: posix
+InstalledDir: /usr/bin
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -c -MD -MF objs/custom.d, -o objs/hello.o
+----- $ gcc -c -MD -MF /tmp/tmp.hoxp8JHncp/objs/custom.d hello.c -o /tmp/tmp.hoxp8JHncp/objs/hello.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: read the generated dep file
+----- $ show /tmp/tmp.hoxp8JHncp/objs/custom.d
+--- contents of /tmp/tmp.hoxp8JHncp/objs/custom.d ---
+/tmp/tmp.hoxp8JHncp/objs/hello.o: hello.c /usr/include/stdc-predef.h \
+ /usr/include/stdio.h \
+ /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+ /usr/include/features.h /usr/include/features-time64.h \
+ /usr/include/x86_64-linux-gnu/bits/wordsize.h \
+ /usr/include/x86_64-linux-gnu/bits/timesize.h \
+ /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+ /usr/include/x86_64-linux-gnu/bits/long-double.h \
+ /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+ /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h \
+ /usr/include/x86_64-linux-gnu/bits/types.h \
+ /usr/include/x86_64-linux-gnu/bits/typesizes.h \
+ /usr/include/x86_64-linux-gnu/bits/time64.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__FILE.h \
+ /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
+ /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/floatn.h \
+ /usr/include/x86_64-linux-gnu/bits/floatn-common.h local.h nested.h \
+ /usr/include/string.h \
+ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+ /usr/include/strings.h
+--- end ---
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -c -MD with -o /tmp/h1.o : where does the .d land?
+----- $ gcc -c -MD hello.c -o /tmp/tmp.hoxp8JHncp/h1.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: expect $R/h1.d to exist (derived from -o, NOT from the source name)
+----- $ test -f /tmp/tmp.hoxp8JHncp/h1.d
+----- RESULT: PASS (exit 0)
+
+===== STEP: confirm no hello.d was written in the cwd
+----- $ test ! -f hello.d
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -c -MD with NO -o : .d takes the source basename in the cwd
+----- $ sh -c cd "$1" && cp "$2/hello.c" "$2/local.h" "$2/nested.h" . && gcc -c -MD hello.c _ /tmp/tmp.hoxp8JHncp /home/user/api-cache/plan/research/compile-semantics/probes/src
+----- RESULT: PASS (exit 0)
+
+===== STEP: expect $R/hello.d to exist
+----- $ test -f /tmp/tmp.hoxp8JHncp/hello.d
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -c -MD -MP
+----- $ gcc -c -MD -MP -MF /tmp/tmp.hoxp8JHncp/objs/mp.d hello.c -o /tmp/tmp.hoxp8JHncp/objs/hello.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: read it (note the phony target per prerequisite)
+----- $ show /tmp/tmp.hoxp8JHncp/objs/mp.d
+--- contents of /tmp/tmp.hoxp8JHncp/objs/mp.d ---
+/tmp/tmp.hoxp8JHncp/objs/hello.o: hello.c /usr/include/stdc-predef.h \
+ /usr/include/stdio.h \
+ /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+ /usr/include/features.h /usr/include/features-time64.h \
+ /usr/include/x86_64-linux-gnu/bits/wordsize.h \
+ /usr/include/x86_64-linux-gnu/bits/timesize.h \
+ /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+ /usr/include/x86_64-linux-gnu/bits/long-double.h \
+ /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+ /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h \
+ /usr/include/x86_64-linux-gnu/bits/types.h \
+ /usr/include/x86_64-linux-gnu/bits/typesizes.h \
+ /usr/include/x86_64-linux-gnu/bits/time64.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__FILE.h \
+ /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
+ /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/floatn.h \
+ /usr/include/x86_64-linux-gnu/bits/floatn-common.h local.h nested.h \
+ /usr/include/string.h \
+ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+ /usr/include/strings.h
+/usr/include/stdc-predef.h:
+/usr/include/stdio.h:
+/usr/include/x86_64-linux-gnu/bits/libc-header-start.h:
+/usr/include/features.h:
+/usr/include/features-time64.h:
+/usr/include/x86_64-linux-gnu/bits/wordsize.h:
+/usr/include/x86_64-linux-gnu/bits/timesize.h:
+/usr/include/x86_64-linux-gnu/sys/cdefs.h:
+/usr/include/x86_64-linux-gnu/bits/long-double.h:
+/usr/include/x86_64-linux-gnu/gnu/stubs.h:
+/usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h:
+/usr/include/x86_64-linux-gnu/bits/types.h:
+/usr/include/x86_64-linux-gnu/bits/typesizes.h:
+/usr/include/x86_64-linux-gnu/bits/time64.h:
+/usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/__FILE.h:
+/usr/include/x86_64-linux-gnu/bits/types/FILE.h:
+/usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h:
+/usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h:
+/usr/include/x86_64-linux-gnu/bits/stdio_lim.h:
+/usr/include/x86_64-linux-gnu/bits/floatn.h:
+/usr/include/x86_64-linux-gnu/bits/floatn-common.h:
+local.h:
+nested.h:
+/usr/include/string.h:
+/usr/include/x86_64-linux-gnu/bits/types/locale_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/__locale_t.h:
+/usr/include/strings.h:
+--- end ---
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -MD -MT 'a b.o' (target verbatim, ambiguous to make)
+----- $ gcc -c -MD -MT a b.o -MF /tmp/tmp.hoxp8JHncp/objs/mt.d hello.c -o /tmp/tmp.hoxp8JHncp/objs/hello.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: read it
+----- $ sh -c head -1 "$1" _ /tmp/tmp.hoxp8JHncp/objs/mt.d
+a b.o: hello.c /usr/include/stdc-predef.h /usr/include/stdio.h \
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -MD -MQ 'a b.o' (target quoted for make)
+----- $ gcc -c -MD -MQ a b.o -MF /tmp/tmp.hoxp8JHncp/objs/mq.d hello.c -o /tmp/tmp.hoxp8JHncp/objs/hello.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: read it
+----- $ sh -c head -1 "$1" _ /tmp/tmp.hoxp8JHncp/objs/mq.d
+a\ b.o: hello.c /usr/include/stdc-predef.h /usr/include/stdio.h \
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -M (stdout; implies -E, produces no object)
+----- $ sh -c gcc -M hello.c | head -3
+hello.o: hello.c /usr/include/stdc-predef.h /usr/include/stdio.h \
+ /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+ /usr/include/features.h /usr/include/features-time64.h \
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -MM (project headers only)
+----- $ gcc -MM hello.c
+hello.o: hello.c local.h nested.h
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -Wp,-MD,<file> -c
+----- $ gcc -Wp,-MD,/tmp/tmp.hoxp8JHncp/objs/wp.d -c hello.c -o /tmp/tmp.hoxp8JHncp/objs/hello.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: read it
+----- $ sh -c head -1 "$1" _ /tmp/tmp.hoxp8JHncp/objs/wp.d
+hello.o: hello.c /usr/include/stdc-predef.h /usr/include/stdio.h \
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -Wp,-MMD,<file> -c
+----- $ gcc -Wp,-MMD,/tmp/tmp.hoxp8JHncp/objs/wpmm.d -c hello.c -o /tmp/tmp.hoxp8JHncp/objs/hello.o
+----- RESULT: PASS (exit 0)
+
+===== STEP: read it
+----- $ show /tmp/tmp.hoxp8JHncp/objs/wpmm.d
+--- contents of /tmp/tmp.hoxp8JHncp/objs/wpmm.d ---
+hello.o: hello.c local.h nested.h
+--- end ---
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -E -MD -o /dev/null : does a .d appear?
+----- $ sh -c cd "$1" && rm -f hello.d && gcc -E -MD hello.c -o /dev/null; exit 0 _ /tmp/tmp.hoxp8JHncp
+----- RESULT: PASS (exit 0)
+
+===== STEP: expect NO $R/hello.d (finding: -E writes no dep file)
+----- $ test ! -f /tmp/tmp.hoxp8JHncp/hello.d
+----- RESULT: PASS (exit 0)
+
+===== STEP: create the weird-name header set
+----- $ sh -c 
+	set -e
+	mkdir -p "$1"
+	n=0
+	for f in "sp ace.h" "dol\$lar.h" "hash#mark.h" "back\\slash.h" "colon:c.h"; do
+		n=$((n + 1))
+		# Contents MUST be unique per file: gcc implements #pragma once by
+		# comparing file CONTENT, so byte-identical headers are deduped and
+		# vanish from the dep list (that hazard is probed separately below).
+		printf "#pragma once\nint fn_%d(void);\n" "$n" > "$1/$f"
+	done
+	{
+		echo "#include \"sp ace.h\""
+		echo "#include \"dol\$lar.h\""
+		echo "#include \"hash#mark.h\""
+		echo "#include \"back\\slash.h\""
+		echo "#include \"colon:c.h\""
+		echo "int main(void){return 0;}"
+	} > "$1/w.c"
+ _ /tmp/tmp.hoxp8JHncp/weird dir
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -MM over the weird names
+----- $ sh -c cd "$1" && gcc -MM w.c _ /tmp/tmp.hoxp8JHncp/weird dir
+w.o: w.c sp\ ace.h dol$$lar.h hash\#mark.h back\slash.h colon:c.h
+----- RESULT: PASS (exit 0)
+
+===== STEP: clang -MM over the weird names (note \ -> / and the \# escape)
+----- $ sh -c cd "$1" && clang -MM w.c _ /tmp/tmp.hoxp8JHncp/weird dir
+w.o: w.c sp\ ace.h dol$$lar.h hash\#mark.h back/slash.h colon:c.h
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -MM with a directory name containing a space
+----- $ sh -c cd "$1" && gcc -MM -I "weird dir" "weird dir/w.c" _ /tmp/tmp.hoxp8JHncp
+w.o: weird\ dir/w.c weird\ dir/sp\ ace.h weird\ dir/dol$$lar.h \
+ weird\ dir/hash\#mark.h weird\ dir/back\slash.h weird\ dir/colon:c.h
+----- RESULT: PASS (exit 0)
+
+===== STEP: two DISTINCT headers with byte-identical content, both #pragma once
+----- $ sh -c 
+	set -e
+	mkdir -p "$1/once"
+	printf "#pragma once\nint q(void);\n" > "$1/once/a.h"
+	printf "#pragma once\nint q(void);\n" > "$1/once/b.h"
+	printf "#include \"a.h\"\n#include \"b.h\"\nint main(void){return 0;}\n" > "$1/once/m.c"
+ _ /tmp/tmp.hoxp8JHncp
+----- RESULT: PASS (exit 0)
+
+===== STEP: gcc -MM : HAZARD — b.h is absent from the dep list
+----- $ sh -c cd "$1/once" && gcc -MM m.c _ /tmp/tmp.hoxp8JHncp
+m.o: m.c a.h
+----- RESULT: PASS (exit 0)
+
+===== STEP: clang -MM : both are listed
+----- $ sh -c cd "$1/once" && clang -MM m.c _ /tmp/tmp.hoxp8JHncp
+m.o: m.c a.h b.h
+----- RESULT: PASS (exit 0)
+
+===== STEP: make b.h differ, then gcc -MM lists both
+----- $ sh -c 
+	set -e
+	cd "$1/once"
+	printf "#pragma once\nint q2(void);\n" > b.h
+	gcc -MM m.c
+ _ /tmp/tmp.hoxp8JHncp
+m.o: m.c a.h b.h
+----- RESULT: PASS (exit 0)
+
+===== STEP: include GUARDS with identical content are NOT deduped
+----- $ sh -c 
+	set -e
+	cd "$1/once"
+	printf "#ifndef G\n#define G\nint q(void);\n#endif\n" > c.h
+	cp c.h d.h
+	printf "#include \"c.h\"\n#include \"d.h\"\nint main(void){return 0;}\n" > n.c
+	gcc -MM n.c
+ _ /tmp/tmp.hoxp8JHncp
+n.o: n.c c.h d.h
+----- RESULT: PASS (exit 0)
+
+=========================================================
+PROBE SUMMARY: 32 steps, 0 FAILURES
+=========================================================

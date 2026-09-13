@@ -1,0 +1,19 @@
+=== RUN   TestRatios
+file                        raw        lz4    ratio         s2    ratio  s2-better    ratio     zstd-1    ratio     zstd-3    ratio     zstd-9    ratio
+testdata/small.o          10192       5261    0.516       5138    0.504       4834    0.474       3596    0.353       3566    0.350       3349    0.329
+testdata/mid.o           527840     196240    0.372     201622    0.382     188900    0.358     123606    0.234     123755    0.234     107040    0.203
+testdata/big_g1.o       1490368     462622    0.310     468607    0.314     440281    0.295     310076    0.208     300229    0.201     258373    0.173
+testdata/big.o          5040832    1635381    0.324    1668705    0.331    1569357    0.311    1022920    0.203     984576    0.195     836678    0.166
+testdata/mid.d             9111       2593    0.285       2396    0.263       2229    0.245       1763    0.194       1663    0.183       1465    0.161
+--- PASS: TestRatios (0.59s)
+=== RUN   TestContainerOverhead
+format                      bytes   overhead      pct
+framed (ACE1)              579843        +72   0.012%
+tar (ustar)                583168      +3397   0.586%
+tar + manifest.json        584192      +4421   0.763%
+zip (stored)               580221       +450   0.078%
+zip (deflate)              143193    -436578 -75.302%
+raw member bytes           579771
+--- PASS: TestContainerOverhead (0.01s)
+PASS
+ok  	apicache/probes	0.618s
