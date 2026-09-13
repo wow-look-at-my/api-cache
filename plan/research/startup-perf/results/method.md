@@ -73,6 +73,15 @@ writes a partial table as if it were complete. A green job with a short table
 is worse than a red one, because the short table gets copied into a results
 file and read as though it were the whole answer.
 
+A handful of `|| true` and `2>/dev/null` remain in the CI scripts. Every one is
+on a DESCRIPTIVE HEADER FIELD or a cleanup trap, never on a measurement: the
+CPU model string (ARM64 `/proc/cpuinfo` has no `model name` line at all), the
+core count (`nproc` on Linux versus `sysctl` on macOS), killing the test daemon
+on exit, and one `grep -c` whose zero-match case IS the failure being checked
+and must reach the comparison as a number rather than abort before it. A
+missing CPU model reports what the kernel does give and the benchmark proceeds;
+a missing benchmark fails the job.
+
 The single documented exception is macOS's static rows, and it is a platform
 fact rather than a failure: Apple does not support statically linking libSystem,
 and clang on macOS links libc++ dynamically. Those targets are not attempted

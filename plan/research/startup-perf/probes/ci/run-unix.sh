@@ -100,7 +100,10 @@ hyperfine --shell=none --warmup "$WARMUP" --runs "$RUNS" \
 [ -s "$OUT/startup.md" ] || { echo "FATAL: hyperfine wrote an empty markdown table; see startup.console.txt" >&2; exit 1; }
 # Three array elements per target: -n, the label, the path.
 want=$(( ${#targets[@]} / 3 ))
-got=$(grep -c '^|' "$OUT/startup.md" || true)
+# `grep -c` exits 1 on zero matches, which under `set -e` would abort before
+# the check below could report WHY. Zero matches is the failure this check
+# exists to catch, so it must reach the comparison as a number.
+got=$(grep -c '^|' "$OUT/startup.md" || echo 0)
 [ "$got" -ge $(( want + 2 )) ] || {
 	echo "FATAL: hyperfine table has $got lines for $want targets; a benchmark failed. See startup.console.txt" >&2
 	exit 1
