@@ -39,7 +39,7 @@ $meta += "- runner label: ``$env:RUNNER_LABEL``"
 $meta += "- commit: ``$env:GITHUB_SHA``"
 $meta += "- run: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
 $meta += "- cpu cores: $env:NUMBER_OF_PROCESSORS"
-$meta += "- cl: $((cl.exe 2>&1 | Select-Object -First 1))"
+$meta += "- cl: $((cl.exe /help 2>&1 | Select-String -Pattern 'Compiler Version' | Select-Object -First 1))"
 $meta += "- go: $(go version)"
 $meta += "- rustc: $(rustc --version)"
 $meta += "- hyperfine: $(hyperfine --version)"
@@ -91,10 +91,26 @@ foreach ($t in $targets) {
 	# Every target must exist. A missing one is a build regression, not a row
 	# to quietly drop out of the table.
 	if (-not (Test-Path $path)) { throw "target '$($t.label)' was not built: $path is missing" }
-	$hfArgs += @("-n", $t.label, $path)
+	# FORWARD SLASHES, deliberately. With --shell=none hyperfine splits each
+	# command with shell-words rules, in which a backslash is an escape
+	# character, so `D:\a\repo\out\c-dyn.exe` arrives as
+	# `D:arepooutc-dyn.exe` and every benchmark dies with "program not found".
+	# Windows accepts forward slashes in a path, so this costs nothing.
+	$hfArgs += @("-n", $t.label, ($path -replace '\\', '/'))
 }
 hyperfine @hfArgs *>&1 | Tee-Object -FilePath (Join-Path $OUT "startup.console.txt")
-if (-not (Test-Path (Join-Path $OUT "startup.md"))) { throw "hyperfine wrote no markdown table" }
+if ($LASTEXITCODE -ne 0) { throw "hyperfine exited $LASTEXITCODE; see startup.console.txt" }
+
+# A non-empty table, not merely a file. hyperfine creates the export file
+# before it runs, so `Test-Path` alone passes even when every benchmark
+# failed. That is exactly how this job went green with no numbers in it once.
+$tbl = Join-Path $OUT "startup.md"
+if (-not (Test-Path $tbl)) { throw "hyperfine wrote no markdown table at $tbl" }
+if ((Get-Item $tbl).Length -eq 0) { throw "hyperfine wrote an EMPTY markdown table; see startup.console.txt" }
+$rows = @(Get-Content $tbl | Where-Object { $_ -match '^\|' }) .Count
+if ($rows -lt ($targets.Count + 2)) {
+	throw "hyperfine table has $rows lines for $($targets.Count) targets; a benchmark failed. See startup.console.txt"
+}
 
 $extra = @("", "## binary sizes", "", "| binary | bytes |", "|---|---|")
 foreach ($t in $targets) {

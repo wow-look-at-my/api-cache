@@ -1,0 +1,2 @@
+Benchmark 1: C hello, MSVC /MD (shared CRT)
+Error: Failed to run command 'D:\a\api-cache\api-cache\out\c-dyn.exe': program not found
