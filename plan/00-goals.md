@@ -24,8 +24,8 @@ Codebase size is not a metric. The constraint that kept buildcache small no long
 1. **Correctness before hits.** A wrong hit is a corrupted build. Every bypass has a stated reason from a closed vocabulary. An invocation the rule file does not classify is passed through, never guessed at.
 2. **Absolute performance on the hot path.** A hit must cost close to the process-startup floor of a C program. The budget and the measured basis are in `06-hot-path.md`. Config load must not be paid per invocation once a cooked or cached form exists.
 3. **Configurability without recompiling.** A new tool, a new flag family, a new key policy, a new remote is a rule-file change. The rule file uses `<vars>`, `<steps>`, `<if>`, `<for>`, templates and program hooks exactly as api-cli does, so anything a shell script could compute, a rule can compute, at a cost the author can see.
-4. **One engine, many tools.** C and C++ (gcc, clang, MSVC, clang-cl), Rust (rustc under cargo), Go (the GOCACHEPROG protocol, reusing go-s3-server's cacheclient), CUDA (nvcc), and a generic action mode (declared inputs and outputs, Bazel-style) all run on the same primitives.
-5. **Local and remote are one design.** The local store and the remote tier share the entry format and the key space. The remote tier reuses go-s3-server's storage, index, batch and eviction where they generalize.
+4. **One engine, many tools.** C and C++ (gcc, clang, MSVC, clang-cl), Rust (rustc under cargo), Go (the GOCACHEPROG protocol), CUDA (nvcc), and a generic action mode (declared inputs and outputs, Bazel-style) all run on the same primitives.
+5. **Local and remote are one design.** The local store and the remote tier share the entry format and the key space. go-s3-server is prior art for the remote tier, and its storage, index, batch and eviction designs are candidates for reuse where they generalize, never a requirement.
 6. **Observable.** Stats, an `explain` for any invocation that says why it hit, missed, or bypassed, structured logs, and metrics on the server. A miss the operator cannot explain is a bug.
 7. **Portable.** Linux, macOS and Windows, on x86-64 and arm64. Windows needs MSVC support and a metadata strategy that does not depend on xattrs.
 
@@ -34,11 +34,15 @@ Codebase size is not a metric. The constraint that kept buildcache small no long
 - Distributed compilation (distcc, icecc, sccache-dist). The rule language may later express a remote executor, and nothing in the key design blocks it, but it is not built first.
 - Caching links. Nothing in the engine forbids it (the generic action mode can), but no shipped rule does it.
 - A GUI. The operator surface is the CLI and the server's existing dashboard pattern.
-- Replacing go-toolchain's in-process Go cache client. api-cache speaks GOCACHEPROG for a stock `go`; gosmopolitan keeps its in-process path.
+- Replacing any existing in-process Go cache client. api-cache speaks GOCACHEPROG for a stock `go` and nothing more.
 
 ## Success criteria
 
 - On a warm local cache, a gcc hit through api-cache costs no more than ccache's hit on the same machine, measured with the harness in `plan/research/startup-perf/`.
 - The shipped gcc/clang rule matches ccache's bypass decisions on a corpus of real argv lines (`10-testing-and-ci.md`), with every difference documented.
 - A rule file author can add a new tool without touching Go code, and the loader rejects a rule file that would produce an unsafe key.
-- The remote tier serves a CI fleet with the batch and index features go-s3-server already proved, and a cache poisoned by one client cannot poison another's build silently (integrity checks on read).
+- The remote tier serves a CI fleet with batch and index features of the kind go-s3-server proved, and a cache poisoned by one client cannot poison another's build silently (integrity checks on read).
+
+## Constraints that do NOT apply
+
+This project starts from a clean slate. The conventions of the org's other repositories (a shared build wrapper, a fat portable executable as the only output, a particular lint gate, a particular test harness, a particular CI action) are not requirements here. Any of them may be adopted later on its own merits, and the plan evaluates each choice on measured cost, never on precedent. The prior repositories are reference material for design and code reuse only.

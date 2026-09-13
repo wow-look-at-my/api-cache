@@ -1,6 +1,6 @@
 module apicache/probes
 
-go 1.24
+go 1.26
 
 require (
 	github.com/klauspost/compress v1.20.0
