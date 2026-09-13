@@ -1,0 +1,63 @@
+===== 1. -g, compiled from cwd=src with relative source =====
+  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/a.o:
+    <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
+    <12>   DW_AT_name        : (indirect line string, offset: 0): hello.c
+    <16>   DW_AT_comp_dir    : (indirect line string, offset: 0x8): /home/user/api-cache/plan/research/compile-semantics/probes/src
+    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
+    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
+    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
+===== 2. -g, compiled from parent cwd with relative path src/hello.c =====
+  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/b.o:
+    <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
+    <12>   DW_AT_name        : (indirect line string, offset: 0x3c): src/hello.c
+    <16>   DW_AT_comp_dir    : (indirect line string, offset: 0): /home/user/api-cache/plan/research/compile-semantics/probes
+    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
+    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
+    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
+  byte-identical to (1)? 
+  NO
+===== 3. -g with absolute source path =====
+  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/c.o:
+    <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
+    <12>   DW_AT_name        : (indirect line string, offset: 0x40): /home/user/api-cache/plan/research/compile-semantics/probes/src/hello.c
+    <16>   DW_AT_comp_dir    : (indirect line string, offset: 0): /home/user/api-cache/plan/research/compile-semantics/probes/src
+    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
+    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
+    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
+===== 4. -g -fdebug-prefix-map=$PWD=/proj =====
+  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/d.o:
+    <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
+    <12>   DW_AT_name        : (indirect line string, offset: 0x6): /proj/hello.c
+    <16>   DW_AT_comp_dir    : (indirect line string, offset: 0): /proj
+    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
+    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
+    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
+===== 5. -g -ffile-prefix-map=$PWD=/proj (also rewrites __FILE__) =====
+  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/e.o:
+    <d>   DW_AT_producer    : (indirect string, offset: 0x48): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
+    <12>   DW_AT_name        : (indirect line string, offset: 0x6): /proj/hello.c
+    <16>   DW_AT_comp_dir    : (indirect line string, offset: 0): /proj
+    <31>   DW_AT_name        : (indirect string, offset: 0xd): long unsigned int
+    <38>   DW_AT_name        : (indirect string, offset: 0): unsigned int
+    <3f>   DW_AT_name        : (indirect string, offset: 0xd6): unsigned char
+===== 6. clang -g -fdebug-compilation-dir=/proj =====
+  DW_AT_name/comp_dir/producer for /tmp/tmp.m61dNG0CYF/f.o:
+    <d>   DW_AT_producer    : (indexed string: 0): Ubuntu clang version 18.1.3 (1ubuntu1)
+    <10>   DW_AT_name        : (indexed string: 0x1): hello.c
+    <19>   DW_AT_comp_dir    : (indexed string: 0x2): /proj
+    <3a>   DW_AT_name        : (indexed string: 0x3): char
+    <3e>   DW_AT_name        : (indexed string: 0x4): __ARRAY_SIZE_TYPE__
+    <5f>   DW_AT_name        : (indexed string: 0x5): main
+===== 7. determinism: same argv twice, byte compare (no -g) =====
+  identical
+===== 8. determinism with -g =====
+  identical
+===== 9. does the -o NAME leak into the .o? (same input, two -o names) =====
+  identical -> -o name not embedded
+===== 10. -frandom-seed effect (C++ with anon namespace / static) =====
+  -flto .o DIFFER (random seed)
+  -frandom-seed=0 DIFFER
+===== 11. __FILE__ value under relative vs absolute invocation =====
+const char *p="/tmp/tmp.m61dNG0CYF/fi.c";
+const char *p="fi.c";
+const char *p="fi.c";
