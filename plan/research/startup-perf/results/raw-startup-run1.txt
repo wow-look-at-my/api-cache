@@ -1,3 +1,11 @@
+SUPERSEDED -- LOCAL, NOISY, NOT A REPORTED NUMBER
+
+Taken on the shared development sandbox while other workers were running.
+Kept only as the record of how the probes were developed. Every number in
+the *.md files beside this one comes from a GitHub Actions runner.
+
+----
+
 ### run 1
 /home/user/api-cache/plan/research/startup-perf/bin/c-hello-static n=400  min=1.056  p50=1.274  p90=1.534  p99=2.066  mean=1.335  max=6.691 (ms)
 /home/user/api-cache/plan/research/startup-perf/bin/c-hello-dyn n=400  min=1.138  p50=1.272  p90=1.583  p99=1.751  mean=1.321  max=1.965 (ms)

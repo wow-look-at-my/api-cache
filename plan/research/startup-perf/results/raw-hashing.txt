@@ -1,3 +1,11 @@
+SUPERSEDED -- LOCAL, NOISY, NOT A REPORTED NUMBER
+
+Taken on the shared development sandbox while other workers were running.
+Kept only as the record of how the probes were developed. Every number in
+the *.md files beside this one comes from a GitHub Actions runner.
+
+----
+
 # hashing throughput
 
 - buffer: 4096 KiB, already in memory
@@ -22,4 +30,3 @@
 | os.ReadFile then sha256.Sum256 | 607 | one allocation of the whole file, warm page cache |
 | reused 256 KiB buffer | 564 | no per-call allocation, warm page cache |
 | open + close only | 2 | the syscall floor under every row above |
-

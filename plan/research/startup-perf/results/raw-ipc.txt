@@ -1,3 +1,11 @@
+SUPERSEDED -- LOCAL, NOISY, NOT A REPORTED NUMBER
+
+Taken on the shared development sandbox while other workers were running.
+Kept only as the record of how the probes were developed. Every number in
+the *.md files beside this one comes from a GitHub Actions runner.
+
+----
+
 === in-process per-op round trip cost (no process startup involved)
 go client: dial+roundtrip+close 157.0 us/op   roundtrip only (reused conn) 72.5 us/op
 c client:  dial+roundtrip+close 136.4 us/op   roundtrip only (reused conn) 72.1 us/op
