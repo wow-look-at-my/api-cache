@@ -19,7 +19,7 @@ mkdir -p "$OUT"
 $GO test -run 'TestRatios|TestContainerOverhead' -v . > "$OUT/tables.txt" 2>&1
 $GO test -run '^$' -bench . -benchtime "$BENCHTIME" -count 1 . > "$OUT/bench.txt" 2>&1
 if [ -d binpazer ]; then
-	(cd binpazer && $GO test -run 'TestBinpazer' -v . > "../$OUT/binpazer-tables.txt" 2>&1 || true)
-	(cd binpazer && $GO test -run '^$' -bench . -benchtime "$BENCHTIME" -count 1 . > "../$OUT/binpazer-bench.txt" 2>&1 || true)
+	(cd binpazer && $GO test -run 'TestBinpazer' -v . > "../$OUT/binpazer-tables.txt" 2>&1)
+	(cd binpazer && $GO test -run '^$' -bench . -benchtime "$BENCHTIME" -count 1 . > "../$OUT/binpazer-bench.txt" 2>&1)
 fi
 tail -3 "$OUT/bench.txt"

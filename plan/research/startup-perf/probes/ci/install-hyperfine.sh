@@ -11,15 +11,18 @@ VER="${HYPERFINE_VERSION:-1.19.0}"
 DEST="${HYPERFINE_DEST:-$HOME/.hyperfine/bin}"
 mkdir -p "$DEST"
 
-case "$(uname -s)" in
-	Linux)  OS=unknown-linux-musl ;;
-	Darwin) OS=apple-darwin ;;
-	*) echo "install-hyperfine.sh is for unix runners; Windows uses the PowerShell path" >&2; exit 1 ;;
-esac
 case "$(uname -m)" in
 	x86_64|amd64)  ARCH=x86_64 ;;
 	aarch64|arm64) ARCH=aarch64 ;;
 	*) echo "unsupported arch $(uname -m)" >&2; exit 1 ;;
+esac
+case "$(uname -s)" in
+	# hyperfine publishes a musl build for linux x86_64 but NOT for aarch64,
+	# where only the gnu build exists. Asking for the musl aarch64 asset gets a
+	# 404, which is what failed the linux-arm64 job.
+	Linux)  if [ "$ARCH" = aarch64 ]; then OS=unknown-linux-gnu; else OS=unknown-linux-musl; fi ;;
+	Darwin) OS=apple-darwin ;;
+	*) echo "install-hyperfine.sh is for unix runners; Windows uses the PowerShell path" >&2; exit 1 ;;
 esac
 
 NAME="hyperfine-v${VER}-${ARCH}-${OS}"

@@ -26,15 +26,22 @@ jobs:
       run:
         shell: bash
     steps:
+      # Sparse: another worker's tree carries a path with a backslash in it,
+      # which git on Windows refuses to check out ("invalid path"). Only this
+      # worker's directory is needed here anyway.
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            plan/research/storage-protocol
+            .github/workflows
+          sparse-checkout-cone-mode: true
 
       # binpazer lives in its own repository. The probe module carries a local
-      # replace for development; rewrite it to the checkout here. If the
-      # checkout is not permitted, the binpazer step is skipped rather than
-      # failing the whole matrix leg.
+      # replace for development; rewrite it to the checkout here. A
+      # failed checkout fails the job: a missing prerequisite is reported, never
+      # skipped.
       - name: check out bin-file-fmt
         id: binfmt
-        continue-on-error: true
         uses: actions/checkout@v4
         with:
           repository: wow-look-at-my/bin-file-fmt
@@ -55,12 +62,10 @@ jobs:
 
       - name: build the corpus
         id: corpus
-        continue-on-error: true
         working-directory: plan/research/storage-protocol/probes
         run: ./gen-testdata.sh
 
       - name: point the binpazer probe at the checkout
-        if: steps.binfmt.outcome == 'success'
         working-directory: plan/research/storage-protocol/probes/binpazer
         run: |
           go mod edit -replace github.com/wow-look-at-my/bin-file-fmt/go="$GITHUB_WORKSPACE/refs/bin-file-fmt/go"
@@ -73,10 +78,6 @@ jobs:
           BENCHTIME: 2s
           GOFLAGS: -mod=mod
         run: |
-          if [ "${{ steps.binfmt.outcome }}" != "success" ]; then
-            echo "bin-file-fmt checkout unavailable; skipping the binpazer probe" > /tmp/no-binpazer
-            mv binpazer binpazer.skip
-          fi
           ./run.sh
 
       - name: summarise
