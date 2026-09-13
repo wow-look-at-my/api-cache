@@ -1,0 +1,210 @@
+# startup-perf: every measurement behind plan/research/startup-perf.
+#
+# A compiler wrapper is exec'd thousands of times per build, so process startup
+# and config-load time dominate what it costs. This workflow measures that on
+# GitHub Actions runners rather than on a development machine: a dev box is
+# running other work, and a millisecond measurement taken beside a compile job
+# is noise with a decimal point on it.
+#
+# One job per measurement family, each on its own runner, each uploading its
+# markdown and JSON as an artifact.
+#
+# Rows WITHIN one job are comparable. Rows ACROSS jobs are not: every runner is
+# a different machine.
+name: startup-perf
+
+on:
+  push:
+    branches: ['claude/**']
+    # Scoped to this worker's own files. Every other worker on this branch
+    # pushes constantly, and an unscoped trigger started a benchmark on each of
+    # those pushes that the next one then cancelled, so nothing finished.
+    paths:
+      - '.github/workflows/startup-perf*.yml'
+      - 'plan/research/startup-perf/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # A sparse checkout of this research directory alone. It is smaller, and a
+  # sibling worker's probe tree holds a path with a backslash in its name,
+  # which Windows git refuses outright with `invalid path`.
+  SPARSE: plan/research/startup-perf
+
+jobs:
+  # ---------------------------------------------------------------- family 1
+  startup:
+    name: startup-floor / ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,    name: linux-x64 }
+          - { os: ubuntu-24.04-arm, name: linux-arm64 }
+          - { os: macos-latest,     name: macos-arm64 }
+          - { os: windows-latest,   name: windows-x64 }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: plan/research/startup-perf
+          sparse-checkout-cone-mode: true
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24' }
+      - name: rust toolchain
+        run: rustc --version || rustup default stable
+      - name: install hyperfine (unix)
+        if: runner.os != 'Windows'
+        run: bash plan/research/startup-perf/probes/ci/install-hyperfine.sh
+      - name: install hyperfine (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: pwsh -File plan/research/startup-perf/probes/ci/install-hyperfine.ps1
+      - name: bench (unix)
+        if: runner.os != 'Windows'
+        env:
+          RUNNER_LABEL: ${{ matrix.os }}
+        run: |
+          chmod +x plan/research/startup-perf/probes/ci/run-unix.sh
+          plan/research/startup-perf/probes/ci/run-unix.sh "$GITHUB_WORKSPACE/out"
+          cat "$GITHUB_WORKSPACE/out/report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: bench (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          RUNNER_LABEL: ${{ matrix.os }}
+        run: |
+          pwsh -File plan/research/startup-perf/probes/ci/run-windows.ps1 "$env:GITHUB_WORKSPACE\out"
+          Get-Content "$env:GITHUB_WORKSPACE\out\report.md" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: startup-floor-${{ matrix.name }}
+          path: out/**
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------- family 2
+  config-load:
+    name: config-load / ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,  name: linux-x64 }
+          - { os: macos-latest,   name: macos-arm64 }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: plan/research/startup-perf
+          sparse-checkout-cone-mode: true
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24' }
+      - name: bench
+        env:
+          RUNNER_LABEL: ${{ matrix.os }}
+        run: |
+          chmod +x plan/research/startup-perf/probes/ci/run-config-load.sh
+          plan/research/startup-perf/probes/ci/run-config-load.sh "$GITHUB_WORKSPACE/out"
+          cat "$GITHUB_WORKSPACE/out/config-load.md" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: config-load-${{ matrix.name }}
+          path: out/**
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------- family 3
+  trailer:
+    name: cooked-trailer / linux-x64
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: plan/research/startup-perf
+          sparse-checkout-cone-mode: true
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24' }
+      - name: install hyperfine
+        run: bash plan/research/startup-perf/probes/ci/install-hyperfine.sh
+      - name: bench
+        env:
+          RUNNER_LABEL: ubuntu-latest
+        run: |
+          chmod +x plan/research/startup-perf/probes/ci/run-trailer.sh
+          plan/research/startup-perf/probes/ci/run-trailer.sh "$GITHUB_WORKSPACE/out"
+          cat "$GITHUB_WORKSPACE/out/trailer.md" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cooked-trailer-linux-x64
+          path: out/**
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------- family 4
+  daemon:
+    name: daemon-roundtrip / linux-x64
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: plan/research/startup-perf
+          sparse-checkout-cone-mode: true
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24' }
+      - name: install hyperfine
+        run: bash plan/research/startup-perf/probes/ci/install-hyperfine.sh
+      - name: bench
+        env:
+          RUNNER_LABEL: ubuntu-latest
+        run: |
+          chmod +x plan/research/startup-perf/probes/ci/run-daemon.sh
+          plan/research/startup-perf/probes/ci/run-daemon.sh "$GITHUB_WORKSPACE/out"
+          cat "$GITHUB_WORKSPACE/out/daemon.md" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daemon-roundtrip-linux-x64
+          path: out/**
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------- family 5
+  hashing:
+    name: hashing / ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Both, because SHA-NI on x64 and the ARMv8 crypto extensions change
+          # the sha256 row by an order of magnitude and a wrapper's cache key
+          # rides on it.
+          - { os: ubuntu-latest,    name: linux-x64 }
+          - { os: ubuntu-24.04-arm, name: linux-arm64 }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: plan/research/startup-perf
+          sparse-checkout-cone-mode: true
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24' }
+      - name: bench
+        env:
+          RUNNER_LABEL: ${{ matrix.os }}
+        run: |
+          chmod +x plan/research/startup-perf/probes/ci/run-hashing.sh
+          plan/research/startup-perf/probes/ci/run-hashing.sh "$GITHUB_WORKSPACE/out"
+          cat "$GITHUB_WORKSPACE/out/hashing.md" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hashing-${{ matrix.name }}
+          path: out/**
+          if-no-files-found: warn
