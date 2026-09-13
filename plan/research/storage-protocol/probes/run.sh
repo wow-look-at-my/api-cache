@@ -27,10 +27,13 @@ mkdir -p "$OUT"
 	df . | tail -1
 	$GO version
 } > "$OUT/machine.txt" 2>&1
-$GO test -run 'TestRatios|TestContainerOverhead' -v . > "$OUT/tables.txt" 2>&1
+# Every Test in the package, not a named subset: a filter that silently
+# omits a probe (TestReflinkSupport, say) produces a results file that reads
+# complete and is not.
+$GO test -run 'Test' -v . > "$OUT/tables.txt" 2>&1
 $GO test -run '^$' -bench . -benchtime "$BENCHTIME" -count 1 . > "$OUT/bench.txt" 2>&1
 # The binpazer probe is mandatory; a missing directory is a failure.
 [ -d binpazer ] || { echo "binpazer probe directory missing" >&2; exit 1; }
-(cd binpazer && $GO test -run 'TestBinpazer' -v . > "../$OUT/binpazer-tables.txt" 2>&1)
+(cd binpazer && $GO test -run 'Test' -v . > "../$OUT/binpazer-tables.txt" 2>&1)
 (cd binpazer && $GO test -run '^$' -bench . -benchtime "$BENCHTIME" -count 1 . > "../$OUT/binpazer-bench.txt" 2>&1)
 tail -3 "$OUT/bench.txt"

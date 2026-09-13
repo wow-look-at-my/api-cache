@@ -1,0 +1,5 @@
+Artifact: storage-protocol-ubuntu-latest
+Run: https://github.com/wow-look-at-my/api-cache/actions/runs/34728376981
+Runner: ubuntu-latest, AMD EPYC 7763, 4 vCPU, sha_ni present, ext4 on /dev/root
+Commit: 2b3e80573a4b75d2106ca0ec4642da359e42b977
+benchtime: 2s

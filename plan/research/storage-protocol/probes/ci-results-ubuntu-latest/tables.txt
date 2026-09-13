@@ -1,0 +1,21 @@
+go: downloading github.com/klauspost/compress v1.20.0
+go: downloading github.com/pierrec/lz4/v4 v4.1.27
+=== RUN   TestRatios
+file                        raw        lz4    ratio         s2    ratio  s2-better    ratio     zstd-1    ratio     zstd-3    ratio     zstd-9    ratio
+testdata/small.o          10232       5294    0.517       5133    0.502       4843    0.473       3597    0.352       3517    0.344       3346    0.327
+testdata/mid.o           527880     196256    0.372     201601    0.382     188876    0.358     123626    0.234     123701    0.234     107063    0.203
+testdata/big_g1.o       1490416     462647    0.310     468578    0.314     440277    0.295     310109    0.208     300518    0.202     258379    0.173
+testdata/big.o          5040872    1635438    0.324    1668713    0.331    1569350    0.311    1022986    0.203     984348    0.195     836709    0.166
+testdata/mid.d             9124       2618    0.287       2395    0.262       2244    0.246       1773    0.194       1669    0.183       1471    0.161
+--- PASS: TestRatios (0.40s)
+=== RUN   TestContainerOverhead
+format                      bytes   overhead      pct
+framed (ACE1)              579896        +72   0.012%
+tar (ustar)                583680      +3856   0.665%
+tar + manifest.json        584704      +4880   0.842%
+zip (stored)               580274       +450   0.078%
+zip (deflate)              143192    -436632 -75.304%
+raw member bytes           579824
+--- PASS: TestContainerOverhead (0.01s)
+PASS
+ok  	apicache/probes	0.416s
